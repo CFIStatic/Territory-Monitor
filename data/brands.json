@@ -1,0 +1,26 @@
+{
+  "$comment": [
+    "Brand registry. `color` / `colorDark` drive the map when Color mode = Brand.",
+    "",
+    "Colors are NOT free-form. They are the eight validated categorical slots, assigned in",
+    "the fixed `slot` order below — that ordering is what keeps adjacent brands separable for",
+    "colorblind viewers (worst adjacent CVD dE 9.1 light / 8.4 dark). Where a brand's real",
+    "identity color had a matching hue we kept it (SERVPRO orange, ServiceMaster blue, Paul",
+    "Davis green); the rest are assigned for separation, not likeness.",
+    "",
+    "If you add a 9th tracked brand, do NOT invent a hue — either give it slot `null` (it",
+    "renders in the neutral 'Other' gray) or re-run the palette validator on a new ordering.",
+    "Validator: node scripts/validate_palette.js from the dataviz skill."
+  ],
+  "brands": [
+    { "id": "servicemaster", "name": "ServiceMaster Restore",       "short": "ServiceMaster", "parent": "Roark Capital",       "slot": 1,    "color": "#2a78d6", "colorDark": "#3987e5", "category": "franchise" },
+    { "id": "servpro",       "name": "SERVPRO",                     "short": "SERVPRO",       "parent": "Blackstone",          "slot": 2,    "color": "#eb6834", "colorDark": "#d95926", "category": "franchise" },
+    { "id": "rainbow",       "name": "Rainbow Restoration",         "short": "Rainbow",       "parent": "Neighborly",          "slot": 3,    "color": "#1baf7a", "colorDark": "#199e70", "category": "franchise" },
+    { "id": "firstonsite",   "name": "First Onsite",                "short": "First Onsite",  "parent": "FirstService",        "slot": 4,    "color": "#eda100", "colorDark": "#c98500", "category": "national" },
+    { "id": "puroclean",     "name": "PuroClean",                   "short": "PuroClean",     "parent": "Signal Restoration",  "slot": 5,    "color": "#e87ba4", "colorDark": "#d55181", "category": "franchise" },
+    { "id": "pauldavis",     "name": "Paul Davis Restoration",      "short": "Paul Davis",    "parent": "FirstService Brands", "slot": 6,    "color": "#008300", "colorDark": "#008300", "category": "franchise" },
+    { "id": "belfor",        "name": "BELFOR Property Restoration", "short": "BELFOR",        "parent": "American Securities", "slot": 7,    "color": "#4a3aa7", "colorDark": "#9085e9", "category": "national" },
+    { "id": "restoration1",  "name": "Restoration 1",               "short": "Restoration 1", "parent": "Rush Enterprises",    "slot": 8,    "color": "#e34948", "colorDark": "#e66767", "category": "franchise" },
+    { "id": "independent",   "name": "Independent / Local",         "short": "Independent",   "parent": null,                  "slot": null, "color": "#898781", "colorDark": "#898781", "category": "independent" }
+  ]
+}

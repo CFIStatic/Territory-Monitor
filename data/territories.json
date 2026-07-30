@@ -1,0 +1,97 @@
+{
+  "$comment": [
+    "SOURCE OF TRUTH for territory definitions. Edit this file (or append to it with `npm run ingest`), then run `npm run build:data`.",
+    "",
+    "IMPORTANT: every record below is SAMPLE DATA invented to make the map render out of the box.",
+    "The ZIP assignments do NOT reflect real franchise boundaries. Replace them with your own",
+    "sourced data before treating any output as market intelligence. Records carry `source: \"sample\"`;",
+    "the app badges any territory with that source as UNVERIFIED.",
+    "",
+    "Schema per territory:",
+    "  id              required, unique slug",
+    "  name            required, display name",
+    "  brandId         required, must match an id in brands.json",
+    "  owner           required, the operating entity / franchisee group — drives Color mode = Owner",
+    "  zips            list of 5-digit ZIPs. Primary geometry driver.",
+    "  counties        optional list of 5-digit county FIPS. Expanded to their ZIPs at build time.",
+    "  cities          optional list of \"City, ST\". Expanded to their ZIPs at build time.",
+    "  website/phone/franchiseNumber/address/status/notes  optional metadata",
+    "  source          provenance string, e.g. \"website:2026-07-30\", \"franchise-disclosure-doc\", \"sample\""
+  ],
+  "territories": [
+    {
+      "id": "servpro-nashville-central",
+      "name": "SERVPRO of Nashville Central",
+      "brandId": "servpro",
+      "owner": "Cumberland Restoration Partners LLC",
+      "franchiseNumber": "SAMPLE-0001",
+      "website": null,
+      "status": "active",
+      "zips": ["37201", "37203", "37204", "37205", "37206", "37212", "37215"],
+      "notes": "Sample record — boundaries are illustrative only.",
+      "source": "sample"
+    },
+    {
+      "id": "servpro-brentwood-franklin",
+      "name": "SERVPRO of Brentwood / Franklin",
+      "brandId": "servpro",
+      "owner": "Cumberland Restoration Partners LLC",
+      "franchiseNumber": "SAMPLE-0002",
+      "website": null,
+      "status": "active",
+      "zips": ["37027", "37064", "37067", "37069", "37135", "37179"],
+      "notes": "Sample record — same owner as Nashville Central, demonstrates multi-unit owner rollup.",
+      "source": "sample"
+    },
+    {
+      "id": "servicemaster-nashville",
+      "name": "ServiceMaster Restore of Nashville",
+      "brandId": "servicemaster",
+      "owner": "Harpeth Valley Services Inc",
+      "franchiseNumber": "SAMPLE-0003",
+      "website": null,
+      "status": "active",
+      "zips": ["37207", "37208", "37209", "37210", "37211", "37212", "37217"],
+      "notes": "Sample record — 37212 intentionally overlaps SERVPRO Nashville Central to exercise contested-ZIP metrics.",
+      "source": "sample"
+    },
+    {
+      "id": "pauldavis-williamson",
+      "name": "Paul Davis Restoration of Williamson County",
+      "brandId": "pauldavis",
+      "owner": "Southbridge Restoration Group",
+      "franchiseNumber": "SAMPLE-0004",
+      "website": null,
+      "status": "active",
+      "zips": ["37064", "37067", "37062", "37046", "37014"],
+      "notes": "Sample record — overlaps Brentwood/Franklin on 37064 and 37067.",
+      "source": "sample"
+    },
+    {
+      "id": "puroclean-rutherford",
+      "name": "PuroClean of Rutherford County",
+      "brandId": "puroclean",
+      "owner": "Stones River Holdings LLC",
+      "franchiseNumber": "SAMPLE-0005",
+      "website": null,
+      "status": "active",
+      "cities": ["Murfreesboro, TN", "Smyrna, TN", "La Vergne, TN"],
+      "zips": [],
+      "notes": "Sample record — defined by city list to exercise city→ZIP expansion.",
+      "source": "sample"
+    },
+    {
+      "id": "belfor-middle-tn",
+      "name": "BELFOR Middle Tennessee",
+      "brandId": "belfor",
+      "owner": "BELFOR (corporate branch)",
+      "franchiseNumber": null,
+      "website": null,
+      "status": "active",
+      "counties": ["47037", "47187"],
+      "zips": [],
+      "notes": "Sample record — defined by county FIPS (Davidson, Williamson) to exercise county→ZIP expansion and show corporate-branch overlay behavior.",
+      "source": "sample"
+    }
+  ]
+}
