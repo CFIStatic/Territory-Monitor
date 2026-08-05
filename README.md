@@ -8,9 +8,10 @@ Sales events in restoration are driven by weather. Territory Monitor lets agents
 
 1. **Contacts** — Dump CSV, Excel (.xlsx/.xls), or PDF contact lists (multi-file supported), or add contacts manually.
 2. **Rules + outreach agent** — Example: “1 day before a thunderstorm warning, write a unique professional note to each contact in the storm path.” The agent personalizes every email (not a shared cookie-cutter template).
-3. **Storms** — Log forecasted events with ETA and affected cities.
-4. **Engine** — Matches storm territory to contacts, personalizes templates, schedules sends, and delivers due emails.
-5. **Campaigns** — Review matched recipients and the exact personalized emails.
+3. **Weather + storms** — Pull live alerts from Weather.com (`WEATHER_COM_API_KEY`) or NWS, with manual events as backup.
+4. **Territory map** — See coverage from your contact book, storm polygons on the map, and launch alerts/campaigns from selected cities or storm paths.
+5. **Engine** — Matches storm territory to contacts, personalizes messages, schedules sends, and delivers due emails.
+6. **Campaigns** — Review matched recipients and the exact personalized emails.
 
 ## Quick start
 
@@ -43,16 +44,30 @@ Open [http://localhost:3000](http://localhost:3000).
 | POST | `/api/contacts/upload` | Import contacts from CSV / Excel / PDF (multi-file) |
 | GET/POST | `/api/lists` | Contact lists |
 | GET/POST | `/api/storms` | Storm events |
+| GET/POST | `/api/weather/sync` | Pull Weather.com / NWS alerts into storms |
+| GET | `/api/territory` | Territory + storm geo payload for the map |
+| POST | `/api/territory/alert` | Launch outreach from map selection |
 | GET/POST | `/api/rules` | Outreach rules |
 | GET | `/api/campaigns` | Generated campaigns |
 | POST | `/api/engine/run` | Evaluate rules + send due emails |
 | POST | `/api/preview` | Preview matches for storm + rule |
 | GET/PUT | `/api/settings` | Company / agent identity |
 
+## Weather setup
+
+```bash
+# .env
+WEATHER_COM_API_KEY=your_key_from_developer.weather.com
+```
+
+With a key, sync uses `api.weather.com/v3/alerts/headlines`. Without a key, sync uses the National Weather Service active alerts API (the same US government alert source Weather.com aggregates).
+
 ## Stack
 
 - Next.js (App Router) frontend + API routes
 - Prisma + SQLite
+- Leaflet territory map
+- Weather.com / NWS alert sync
 - Rule matching engine with scheduled email queue
 
 Email delivery is logged as sent in this demo environment. Swap the send block in `src/lib/engine.ts` for SMTP/ESP production delivery.

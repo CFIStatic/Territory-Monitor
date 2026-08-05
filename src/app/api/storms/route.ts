@@ -20,6 +20,7 @@ export async function GET(request: Request) {
       affectedCities: JSON.parse(s.affectedCities || "[]"),
       affectedStates: JSON.parse(s.affectedStates || "[]"),
       affectedZips: JSON.parse(s.affectedZips || "[]"),
+      geometry: s.geometryJson ? JSON.parse(s.geometryJson) : null,
     }))
   );
 }

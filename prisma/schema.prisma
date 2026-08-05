@@ -76,12 +76,21 @@ model StormEvent {
   etaStart       DateTime
   etaEnd         DateTime?
   status         String     @default("forecast")
+  /// weather.com detailKey, NWS id, or null for manual
+  externalId     String?
+  /// weather.com | nws | manual
+  source         String     @default("manual")
+  /// GeoJSON geometry string for map polygons
+  geometryJson   String?
+  areaDesc       String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   campaigns      Campaign[]
 
+  @@unique([externalId])
   @@index([status])
   @@index([etaStart])
+  @@index([source])
 }
 
 model OutreachRule {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { format } from "date-fns";
-import { CloudLightning } from "lucide-react";
+import { CloudLightning, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -14,6 +14,7 @@ type Storm = {
   type: string;
   severity: string;
   status: string;
+  source?: string;
   description: string | null;
   affectedCities: string[];
   affectedStates: string[];
@@ -56,6 +57,26 @@ export default function StormsPage() {
     load();
   }, []);
 
+  function syncWeather() {
+    startTransition(async () => {
+      setMessage("Pulling weather alerts from Weather.com / NWS…");
+      const res = await fetch("/api/weather/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setMessage(json.error || "Weather sync failed");
+        return;
+      }
+      setMessage(
+        `Weather sync via ${json.provider}: ${json.upserted} alerts upserted (${json.fetched} fetched)`
+      );
+      await load();
+    });
+  }
+
   function createStorm() {
     startTransition(async () => {
       const res = await fetch("/api/storms", {
@@ -94,7 +115,12 @@ export default function StormsPage() {
     <div>
       <PageHeader
         title="Storms"
-        description="Track weather events that dictate your sales cycle. The engine matches these territories to your contact book."
+        description="Live weather alerts from Weather.com (when configured) or NWS, plus manual events. Matched to your contact territories for outreach."
+        actions={
+          <button className="btn btn-signal" onClick={syncWeather} disabled={pending}>
+            <RefreshCw size={15} /> {pending ? "Syncing…" : "Pull weather.com / NWS"}
+          </button>
+        }
       />
 
       {message ? <div className="panel mb-4 px-4 py-3 text-sm">{message}</div> : null}
@@ -123,6 +149,9 @@ export default function StormsPage() {
                         <StatusBadge value={storm.severity} />
                         <StatusBadge value={storm.status} />
                         <StatusBadge value={storm.type} />
+                        {storm.source ? (
+                          <StatusBadge value={storm.source} kind="advisory" />
+                        ) : null}
                       </div>
                       <p className="mt-1 text-sm text-ink/55">
                         ETA {format(new Date(storm.etaStart), "EEE, MMM d · h:mm a")}

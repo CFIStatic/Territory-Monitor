@@ -8,6 +8,7 @@ import {
   Eye,
   LayoutDashboard,
   Mail,
+  MapPinned,
   Settings2,
   SlidersHorizontal,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import clsx from "clsx";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/map", label: "Territory map", icon: MapPinned },
   { href: "/contacts", label: "Contacts", icon: ContactRound },
   { href: "/storms", label: "Storms", icon: CloudLightning },
   { href: "/rules", label: "Rules", icon: SlidersHorizontal },
