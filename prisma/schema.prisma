@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model CompanySettings {
+  id           String   @id @default(cuid())
+  companyName  String
+  agentName    String
+  agentEmail   String
+  agentPhone   String?
+  website      String?
+  replyToEmail String?
+  signature    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ContactList {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  contacts    Contact[]
+  rules       OutreachRule[]
+}
+
+model Contact {
+  id        String       @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  address   String?
+  city      String
+  state     String
+  zip       String?
+  company   String?
+  notes     String?
+  listId    String?
+  list      ContactList? @relation(fields: [listId], references: [id], onDelete: SetNull)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  emails    EmailLog[]
+
+  @@index([city, state])
+  @@index([email])
+  @@index([listId])
+}
+
+model StormEvent {
+  id             String     @id @default(cuid())
+  name           String
+  type           String
+  severity       String
+  description    String?
+  affectedCities String
+  affectedStates String
+  affectedZips   String?
+  latitude       Float?
+  longitude      Float?
+  radiusMiles    Float?
+  etaStart       DateTime
+  etaEnd         DateTime?
+  status         String     @default("forecast")
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  campaigns      Campaign[]
+
+  @@index([status])
+  @@index([etaStart])
+}
+
+model OutreachRule {
+  id             String       @id @default(cuid())
+  name           String
+  description    String?
+  enabled        Boolean      @default(true)
+  stormTypes     String
+  minSeverity    String       @default("watch")
+  hoursBeforeEta Int          @default(24)
+  targetCities   String?
+  targetStates   String?
+  contactListId  String?
+  contactList    ContactList? @relation(fields: [contactListId], references: [id], onDelete: SetNull)
+  emailSubject   String
+  emailBody      String
+  fromName       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  campaigns      Campaign[]
+
+  @@index([enabled])
+}
+
+model Campaign {
+  id           String       @id @default(cuid())
+  name         String
+  status       String       @default("scheduled")
+  stormId      String
+  storm        StormEvent   @relation(fields: [stormId], references: [id], onDelete: Cascade)
+  ruleId       String
+  rule         OutreachRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  scheduledFor DateTime
+  sentAt       DateTime?
+  matchedCount Int          @default(0)
+  sentCount    Int          @default(0)
+  failedCount  Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  emails       EmailLog[]
+
+  @@unique([stormId, ruleId])
+  @@index([status])
+  @@index([scheduledFor])
+}
+
+model EmailLog {
+  id           String   @id @default(cuid())
+  campaignId   String
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId    String
+  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  toEmail      String
+  subject      String
+  body         String
+  status       String   @default("queued")
+  scheduledFor DateTime
+  sentAt       DateTime?
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@index([status])
+  @@index([scheduledFor])
+  @@index([campaignId])
+}
