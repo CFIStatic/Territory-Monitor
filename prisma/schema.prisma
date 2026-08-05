@@ -30,22 +30,31 @@ model ContactList {
 }
 
 model Contact {
-  id        String       @id @default(cuid())
-  firstName String
-  lastName  String
-  email     String
-  phone     String?
-  address   String?
-  city      String
-  state     String
-  zip       String?
-  company   String?
-  notes     String?
-  listId    String?
-  list      ContactList? @relation(fields: [listId], references: [id], onDelete: SetNull)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  emails    EmailLog[]
+  id               String       @id @default(cuid())
+  firstName        String
+  lastName         String
+  email            String
+  phone            String?
+  address          String?
+  city             String
+  state            String
+  zip              String?
+  company          String?
+  /// Spouse / partner name the agent remembers
+  spouseName       String?
+  /// Kids, pets, family situation — used for personable check-ins
+  familyNotes      String?
+  /// Hobbies, home details, preferences the agent remembers
+  personalTouch    String?
+  /// What you talked about last time you spoke
+  lastConversation String?
+  /// Freeform CRM notes
+  notes            String?
+  listId           String?
+  list             ContactList? @relation(fields: [listId], references: [id], onDelete: SetNull)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  emails           EmailLog[]
 
   @@index([city, state])
   @@index([email])

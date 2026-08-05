@@ -53,6 +53,10 @@ async function main() {
       state: "WI",
       zip: "53202",
       company: "Brooks Properties",
+      spouseName: "Tom",
+      familyNotes: "two kids in high school; golden retriever named Scout",
+      personalTouch: "just finished renovating the Prospect Ave duplex kitchen",
+      lastConversation: "tenant turnover worries on the lower unit this spring",
     },
     {
       firstName: "Chris",
@@ -63,6 +67,10 @@ async function main() {
       city: "Milwaukee",
       state: "WI",
       zip: "53233",
+      spouseName: "Amy",
+      familyNotes: "expecting their first child in the fall",
+      personalTouch: "loves grilling on the rooftop deck on weekends",
+      lastConversation: "sump pump maintenance before storm season",
     },
     {
       firstName: "Elena",
@@ -72,6 +80,10 @@ async function main() {
       state: "WI",
       zip: "53186",
       address: "311 E Main St",
+      spouseName: "Miguel",
+      familyNotes: "parents live next door; hosts Sunday dinners",
+      personalTouch: "collects vintage porch furniture",
+      lastConversation: "a small basement leak last April that dried out fine",
     },
     {
       firstName: "Tom",
@@ -80,6 +92,9 @@ async function main() {
       city: "Racine",
       state: "WI",
       zip: "53403",
+      familyNotes: "widower; daughter visits from Madison monthly",
+      personalTouch: "keeps a meticulously maintained oak tree in the front yard",
+      lastConversation: "trimming the oak after last year’s wind event",
     },
     {
       firstName: "Priya",
@@ -88,6 +103,10 @@ async function main() {
       city: "Madison",
       state: "WI",
       zip: "53703",
+      spouseName: "Rohan",
+      familyNotes: "twin boys in elementary school",
+      personalTouch: "recently installed new architectural shingles",
+      lastConversation: "needing a recommendation for an attic insulation contractor",
     },
     {
       firstName: "Derek",
@@ -97,6 +116,10 @@ async function main() {
       state: "IL",
       zip: "60611",
       address: "401 N Michigan Ave",
+      company: "Owens Commercial Group",
+      personalTouch: "manages three condo boards on the North Shore",
+      lastConversation: "how fast we can mobilize for hail claims across multiple buildings",
+      notes: "property manager relationships matter — keep tone executive but warm",
     },
     {
       firstName: "Hannah",
@@ -105,6 +128,10 @@ async function main() {
       city: "Green Bay",
       state: "WI",
       zip: "54301",
+      spouseName: "Chris",
+      familyNotes: "two young kids; dog named Biscuit",
+      personalTouch: "proud of their newly painted cedar siding",
+      lastConversation: "Packers season tickets and keeping the house game-day ready",
     },
     {
       firstName: "Marcus",
@@ -114,6 +141,10 @@ async function main() {
       state: "WI",
       zip: "53215",
       company: "Reed Family Trust",
+      spouseName: "Diane",
+      familyNotes: "caring for Diane’s mother who lives with them",
+      personalTouch: "sentimental about the brick bungalow his parents bought in 1978",
+      lastConversation: "getting documentation help ready if insurers slow-walk a claim",
     },
   ];
 

@@ -100,6 +100,81 @@ function audienceOf(contact: Contact): "commercial" | "property_manager" | "home
   return "homeowner";
 }
 
+type MemoryBundle = {
+  familyCheckIn: string | null;
+  personalRecall: string | null;
+  lastTalkRecall: string | null;
+  used: string[];
+};
+
+function buildMemoryBundle(contact: Contact, rng: () => number): MemoryBundle {
+  const used: string[] = [];
+  let familyCheckIn: string | null = null;
+  let personalRecall: string | null = null;
+  let lastTalkRecall: string | null = null;
+
+  if (contact.spouseName || contact.familyNotes) {
+    const spouse = contact.spouseName?.trim();
+    const family = contact.familyNotes?.trim();
+    const options: string[] = [];
+    if (spouse && family) {
+      options.push(
+        `Hope ${spouse} and the family are doing well — I still remember ${family}.`,
+        `Thinking of you and ${spouse}. How’s everyone doing? Last I recalled, ${family}.`,
+        `Please tell ${spouse} I said hello. I’ve been meaning to ask how things are with ${family}.`
+      );
+    } else if (spouse) {
+      options.push(
+        `Hope you and ${spouse} are doing well.`,
+        `Give ${spouse} my best — hope home has been treating you both kindly.`,
+        `How are you and ${spouse} holding up these days?`
+      );
+    } else if (family) {
+      options.push(
+        `Hope the family is doing well — I’ve been thinking about ${family}.`,
+        `Quick personal check-in: how’s everyone at home? I still remember ${family}.`,
+        `Hope things are good with the family (${family}).`
+      );
+    }
+    if (options.length) {
+      familyCheckIn = pick(rng, options);
+      used.push("family");
+    }
+  }
+
+  if (contact.personalTouch?.trim()) {
+    const touch = contact.personalTouch.trim();
+    personalRecall = pick(rng, [
+      `I’ve still got in mind that ${touch}.`,
+      `Been meaning to ask how that went — ${touch}.`,
+      `That detail stuck with me: ${touch}.`,
+    ]);
+    used.push("personalTouch");
+  }
+
+  if (contact.lastConversation?.trim()) {
+    const last = contact.lastConversation.trim().replace(/\.$/, "");
+    // Support both fragments ("sump pump maintenance") and verb phrases ("asked about…")
+    const startsWithVerb = /^(asked|mentioned|wanted|said|told|talked|was|were|is|are)\b/i.test(
+      last
+    );
+    lastTalkRecall = startsWithVerb
+      ? pick(rng, [
+          `Last time we talked, you ${last}. That stuck with me.`,
+          `I’ve been thinking about our last conversation — you ${last}.`,
+          `Since you ${last} last time we spoke, I wanted to check in personally before this weather hits.`,
+        ])
+      : pick(rng, [
+          `Last time we talked, you mentioned ${last}. That stuck with me.`,
+          `I’ve been thinking about our last conversation — especially when you brought up ${last}.`,
+          `Since we last spoke about ${last}, I wanted to check in personally before this weather hits.`,
+        ]);
+    used.push("lastConversation");
+  }
+
+  return { familyCheckIn, personalRecall, lastTalkRecall, used };
+}
+
 function buildOpenings(ctx: {
   firstName: string;
   city: string;
@@ -108,10 +183,17 @@ function buildOpenings(ctx: {
   locality: string | null;
   audience: string;
   companyName: string;
+  familyCheckIn: string | null;
 }): string[] {
-  const local = ctx.locality
-    ? `near ${ctx.locality}`
-    : `in ${ctx.city}`;
+  const local = ctx.locality ? `near ${ctx.locality}` : `in ${ctx.city}`;
+
+  if (ctx.familyCheckIn) {
+    return [
+      `Hi ${ctx.firstName} — ${ctx.familyCheckIn} I’m reaching out personally before the ${ctx.stormNice} moves through ${ctx.city}.`,
+      `${ctx.firstName}, ${ctx.familyCheckIn.charAt(0).toLowerCase()}${ctx.familyCheckIn.slice(1)} Also wanted a quick one-to-one note as the ${ctx.stormNice} sets up ${local}.`,
+      `Hi ${ctx.firstName}. ${ctx.familyCheckIn} With the ${ctx.stormNice} tracking toward ${ctx.city}, I didn’t want a generic blast.`,
+    ];
+  }
 
   return [
     `Hi ${ctx.firstName} — I wanted to reach you directly before the ${ctx.stormNice} moves through ${ctx.city}.`,
@@ -120,6 +202,20 @@ function buildOpenings(ctx: {
     `${ctx.firstName}, hope you’re well. With the ${ctx.stormNice} tracking toward ${ctx.city}, I didn’t want a generic blast — just a direct heads-up from ${ctx.companyName}.`,
     `Hi ${ctx.firstName}. Since you’re ${local}, I wanted you to have my direct line before conditions deteriorate.`,
   ];
+}
+
+function buildPersonalParagraphs(memories: MemoryBundle, rng: () => number): string[] {
+  const lines: string[] = [];
+  // family already used in opening when present; still allow a second soft line if both exist
+  if (memories.personalRecall) lines.push(memories.personalRecall);
+  if (memories.lastTalkRecall) lines.push(memories.lastTalkRecall);
+  if (!lines.length && memories.familyCheckIn) {
+    // opening already covered family; skip duplicate
+    return [];
+  }
+  if (lines.length <= 1) return lines;
+  // Keep emails tight: usually one personal recall paragraph
+  return [pick(rng, lines)];
 }
 
 function buildContextLines(ctx: {
@@ -210,24 +306,28 @@ function buildSubjects(ctx: {
   companyName: string;
   stormName: string;
   audience: string;
+  spouseName: string | null;
+  hasPersonalMemory: boolean;
 }): string[] {
-  return [
+  const base = [
     `${ctx.firstName}, quick note before the ${ctx.stormNice} hits ${ctx.city}`,
     `Personal heads-up for your ${ctx.city} property — ${ctx.stormName}`,
     `${ctx.companyName} standing by for you in ${ctx.city}`,
     `${ctx.firstName} — ${ctx.stormNice} timing for ${ctx.city}`,
-    `Not a blast email: ${ctx.stormName} and your ${ctx.city} address`,
   ];
+  if (ctx.spouseName) {
+    base.unshift(`${ctx.firstName} — hoping you & ${ctx.spouseName} stay safe through this ${ctx.stormNice}`);
+  }
+  if (ctx.hasPersonalMemory) {
+    base.unshift(`${ctx.firstName}, a personal note before the weather hits ${ctx.city}`);
+  }
+  return base;
 }
 
 function isMetaInstruction(text: string): boolean {
-  return /^(keep|do not|don't|mention that|stress that|offer|make clear|tone|avoid|never|always)\b/i.test(
+  return /^(keep|do not|don't|mention that|stress that|offer|make clear|tone|avoid|never|always|give the|ensure|emphasize|include|tell them|remind)\b/i.test(
     text.trim()
-  );
-}
-
-function guidanceMentions(guidance: string | null | undefined, needle: RegExp): boolean {
-  return Boolean(guidance && needle.test(guidance));
+  ) || /\b(agent's|template|talking points|make clear this message)\b/i.test(text);
 }
 
 function applyGuidance(
@@ -280,6 +380,8 @@ function composeWithPhraseBanks(ctx: AgentContext): ComposedEmail {
   const stormNice = stormLabel(storm.type);
   const focus = stormPrepFocus(storm.type);
   const eta = formatEta(new Date(storm.etaStart));
+  const memories = buildMemoryBundle(contact, rng);
+  const hasPersonalMemory = memories.used.length > 0;
 
   const opening = pick(
     rng,
@@ -291,6 +393,7 @@ function composeWithPhraseBanks(ctx: AgentContext): ComposedEmail {
       locality,
       audience,
       companyName,
+      familyCheckIn: memories.familyCheckIn,
     })
   );
 
@@ -321,9 +424,6 @@ function composeWithPhraseBanks(ctx: AgentContext): ComposedEmail {
     audience,
     agentPhone,
   });
-  if (guidanceMentions(rule.emailBody, /direct (phone|line)|call/i) || agentPhone) {
-    // already covered in offer lines
-  }
   if (urgent) {
     offerPool = [
       `Because timing is tight, I wanted you to have priority access with ${companyName} for ${focus}.${
@@ -352,18 +452,30 @@ function composeWithPhraseBanks(ctx: AgentContext): ComposedEmail {
         `You’re getting a one-to-one note because your property is in the expected path through ${contact.city}.`,
       ]);
 
-  const closing = pick(
-    rng,
-    buildClosings({
-      agentName,
-      companyName,
-      agentPhone,
-      agentEmail,
-    })
-  );
+  const memoryParagraphs = buildPersonalParagraphs(memories, rng);
+
+  const closingPool = buildClosings({
+    agentName,
+    companyName,
+    agentPhone,
+    agentEmail,
+  });
+  if (contact.spouseName) {
+    closingPool.unshift(
+      `Stay safe — and give ${contact.spouseName} my best,\n${[
+        agentName,
+        companyName,
+        agentPhone,
+        agentEmail,
+      ]
+        .filter(Boolean)
+        .join("\n")}`
+    );
+  }
+  const closing = pick(rng, closingPool);
 
   const paragraphs = applyGuidance(
-    [opening, context, personalDetail, offer],
+    [opening, ...memoryParagraphs, context, personalDetail, offer],
     rule.emailBody,
     rng
   );
@@ -378,6 +490,8 @@ function composeWithPhraseBanks(ctx: AgentContext): ComposedEmail {
       companyName,
       stormName: storm.name,
       audience,
+      spouseName: contact.spouseName,
+      hasPersonalMemory,
     })
   );
 
@@ -395,10 +509,17 @@ function composeWithPhraseBanks(ctx: AgentContext): ComposedEmail {
   const brief = [
     `Audience: ${audience}`,
     locality ? `Local cue: ${locality}` : `City cue: ${contact.city}`,
+    hasPersonalMemory
+      ? `Personal memories used: ${memories.used.join(", ")}`
+      : "No personal memories on file",
+    contact.spouseName ? `Spouse: ${contact.spouseName}` : null,
+    contact.familyNotes ? `Family: ${contact.familyNotes.slice(0, 60)}` : null,
+    contact.personalTouch ? `Touch: ${contact.personalTouch.slice(0, 60)}` : null,
+    contact.lastConversation
+      ? `Last talk: ${contact.lastConversation.slice(0, 60)}`
+      : null,
     `Storm angle: ${stormNice} / ${focus}`,
-    contact.company ? `Company: ${contact.company}` : "Residential contact",
-    rule.voiceNotes ? `Voice: ${rule.voiceNotes.slice(0, 80)}` : null,
-    "Writer: outreach agent (unique composition, not a shared template)",
+    "Writer: outreach agent (unique + personable, not a shared template)",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -424,7 +545,7 @@ async function composeWithOpenAI(ctx: AgentContext): Promise<ComposedEmail | nul
       {
         role: "system",
         content:
-          "You write short, professional, one-to-one restoration sales outreach emails. Never sound like a mass template. Use the contact's actual details. No emojis. No hype. Warm, competent, specific. Return JSON with keys subject, body, personalizationBrief.",
+          "You write short, professional, one-to-one restoration sales outreach emails. Never sound like a mass template. Always weave in personal memories the sales agent recorded (spouse/family, personal touches, last conversation) in a natural, personable way — like a human who actually remembers them. No emojis. No hype. Warm, competent, specific. Return JSON with keys subject, body, personalizationBrief.",
       },
       {
         role: "user",
@@ -437,6 +558,10 @@ async function composeWithOpenAI(ctx: AgentContext): Promise<ComposedEmail | nul
             zip: ctx.contact.zip,
             address: ctx.contact.address,
             company: ctx.contact.company,
+            spouseName: ctx.contact.spouseName,
+            familyNotes: ctx.contact.familyNotes,
+            personalTouch: ctx.contact.personalTouch,
+            lastConversation: ctx.contact.lastConversation,
             notes: ctx.contact.notes,
           },
           storm: {

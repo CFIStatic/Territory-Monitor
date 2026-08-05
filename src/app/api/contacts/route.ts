@@ -19,6 +19,11 @@ export async function GET(request: Request) {
               { email: { contains: q } },
               { city: { contains: q } },
               { company: { contains: q } },
+              { spouseName: { contains: q } },
+              { familyNotes: { contains: q } },
+              { personalTouch: { contains: q } },
+              { lastConversation: { contains: q } },
+              { notes: { contains: q } },
             ],
           }
         : {}),
@@ -41,6 +46,10 @@ export async function POST(request: Request) {
     state?: string;
     zip?: string;
     company?: string;
+    spouseName?: string;
+    familyNotes?: string;
+    personalTouch?: string;
+    lastConversation?: string;
     notes?: string;
     listId?: string | null;
   }>(request);
@@ -60,6 +69,10 @@ export async function POST(request: Request) {
       state: body.state.trim().toUpperCase(),
       zip: body.zip?.trim() || null,
       company: body.company?.trim() || null,
+      spouseName: body.spouseName?.trim() || null,
+      familyNotes: body.familyNotes?.trim() || null,
+      personalTouch: body.personalTouch?.trim() || null,
+      lastConversation: body.lastConversation?.trim() || null,
       notes: body.notes?.trim() || null,
       listId: body.listId || null,
     },

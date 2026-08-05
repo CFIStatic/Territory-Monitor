@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   CloudLightning,
   ContactRound,
+  Eye,
   LayoutDashboard,
   Mail,
   Settings2,
@@ -17,6 +18,7 @@ const links = [
   { href: "/contacts", label: "Contacts", icon: ContactRound },
   { href: "/storms", label: "Storms", icon: CloudLightning },
   { href: "/rules", label: "Rules", icon: SlidersHorizontal },
+  { href: "/preview", label: "Preview", icon: Eye },
   { href: "/campaigns", label: "Campaigns", icon: Mail },
   { href: "/settings", label: "Settings", icon: Settings2 },
 ];

@@ -12,6 +12,10 @@ export type ContactDraft = {
   state: string;
   zip?: string | null;
   company?: string | null;
+  spouseName?: string | null;
+  familyNotes?: string | null;
+  personalTouch?: string | null;
+  lastConversation?: string | null;
   notes?: string | null;
 };
 
@@ -162,6 +166,35 @@ function rowToContact(row: Row): ContactDraft | null {
     zip: zip || null,
     company:
       pick(row, ["company", "organization", "org", "business", "account"]) || null,
+    spouseName:
+      pick(row, ["spouse", "spouse_name", "partner", "partner_name", "husband", "wife"]) ||
+      null,
+    familyNotes:
+      pick(row, [
+        "family",
+        "family_notes",
+        "kids",
+        "children",
+        "pets",
+        "family_details",
+      ]) || null,
+    personalTouch:
+      pick(row, [
+        "personal_touch",
+        "personal",
+        "hobby",
+        "hobbies",
+        "interests",
+        "home_notes",
+      ]) || null,
+    lastConversation:
+      pick(row, [
+        "last_conversation",
+        "last_talked",
+        "last_call",
+        "remember",
+        "memories",
+      ]) || null,
     notes: pick(row, ["notes", "note", "comment", "comments"]) || null,
   };
 }

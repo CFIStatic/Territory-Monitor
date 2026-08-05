@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   );
 
   const samples = [];
-  for (const contact of matched.slice(0, 5)) {
+  for (const contact of matched.slice(0, 8)) {
     const composed = await composeOutreachEmail({
       contact,
       storm,
@@ -39,7 +39,19 @@ export async function POST(request: Request) {
       settings,
     });
     samples.push({
-      contact,
+      contact: {
+        id: contact.id,
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        city: contact.city,
+        state: contact.state,
+        email: contact.email,
+        spouseName: contact.spouseName,
+        familyNotes: contact.familyNotes,
+        personalTouch: contact.personalTouch,
+        lastConversation: contact.lastConversation,
+        company: contact.company,
+      },
       subject: composed.subject,
       body: composed.body,
       writingMode: composed.writingMode,
