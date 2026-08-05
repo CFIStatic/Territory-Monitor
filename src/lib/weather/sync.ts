@@ -71,19 +71,53 @@ export async function syncWeatherAlerts(options?: {
     options?.forceProvider === "weather.com" ||
     (!options?.forceProvider && hasWeatherComKey());
 
+  // Bias sync toward states where we actually have contacts
+  const contactStates = (
+    await prisma.contact.findMany({
+      select: { state: true },
+      distinct: ["state"],
+    })
+  ).map((c) => c.state.toUpperCase());
+
   if (preferWeatherCom && hasWeatherComKey()) {
     try {
       provider = "weather.com";
-      // Pull US headlines; optionally bias to a territory centroid later
-      alerts = await fetchWeatherComAlerts({ countryCode: "US" });
+      // Prefer a territory centroid geocode when we have mapped contacts
+      const sample = await prisma.contact.findFirst();
+      if (sample) {
+        const { lookupCityCoords } = await import("@/lib/geo/cities");
+        const coords = lookupCityCoords(sample.city, sample.state);
+        alerts = coords
+          ? await fetchWeatherComAlerts({ geocode: coords })
+          : await fetchWeatherComAlerts({ countryCode: "US" });
+      } else {
+        alerts = await fetchWeatherComAlerts({ countryCode: "US" });
+      }
     } catch (error) {
       console.warn("[weather] Weather.com failed, falling back to NWS", error);
       provider = "nws";
-      alerts = await fetchNwsAlerts({ area: options?.area });
+      alerts = await fetchNwsAlerts({ area: options?.area || contactStates[0] });
     }
   } else {
     provider = "nws";
-    alerts = await fetchNwsAlerts({ area: options?.area });
+    // Pull per contact-state when no explicit area — keeps map focused on book of business
+    if (options?.area) {
+      alerts = await fetchNwsAlerts({ area: options.area });
+    } else if (contactStates.length > 0) {
+      const perState = await Promise.all(
+        contactStates.slice(0, 8).map((area) => fetchNwsAlerts({ area, limit: 20 }))
+      );
+      const seen = new Set<string>();
+      for (const batch of perState) {
+        for (const alert of batch) {
+          if (seen.has(alert.externalId)) continue;
+          seen.add(alert.externalId);
+          alerts.push(alert);
+        }
+      }
+    } else {
+      alerts = await fetchNwsAlerts({ limit: 40 });
+    }
   }
 
   let upserted = 0;

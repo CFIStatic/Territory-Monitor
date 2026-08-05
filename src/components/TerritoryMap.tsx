@@ -47,18 +47,33 @@ function FitBounds({
 }) {
   const map = useMap();
   useEffect(() => {
-    const points: [number, number][] = [
-      ...territories.map((t) => [t.lat, t.lng] as [number, number]),
-      ...storms
-        .filter((s) => s.latitude != null && s.longitude != null)
-        .map((s) => [s.latitude as number, s.longitude as number] as [number, number]),
-    ];
+    // Prefer contact territory bounds so Alaska/national noise doesn't zoom the map out
+    const territoryPoints = territories.map(
+      (t) => [t.lat, t.lng] as [number, number]
+    );
+    const stormPointsNearTerritory = storms
+      .filter((s) => s.latitude != null && s.longitude != null)
+      .filter((s) => {
+        if (!territoryPoints.length) return true;
+        return territoryPoints.some(([lat, lng]) => {
+          const dLat = Math.abs((s.latitude as number) - lat);
+          const dLng = Math.abs((s.longitude as number) - lng);
+          return dLat < 4 && dLng < 6;
+        });
+      })
+      .map((s) => [s.latitude as number, s.longitude as number] as [number, number]);
+
+    const points =
+      territoryPoints.length > 0
+        ? [...territoryPoints, ...stormPointsNearTerritory]
+        : stormPointsNearTerritory;
+
     if (points.length === 0) return;
     if (points.length === 1) {
       map.setView(points[0], 8);
       return;
     }
-    map.fitBounds(points, { padding: [40, 40] });
+    map.fitBounds(points, { padding: [40, 40], maxZoom: 9 });
   }, [map, territories, storms]);
   return null;
 }
