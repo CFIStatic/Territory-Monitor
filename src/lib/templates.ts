@@ -47,19 +47,18 @@ export function renderTemplate(template: string, ctx: TemplateContext): string {
   });
 }
 
+/** Soft subject hint for the outreach agent (not a mass template). */
 export const DEFAULT_EMAIL_SUBJECT =
-  "{{stormName}} approaching {{city}} — {{companyName}} is standing by";
+  "Personal note before the storm — keep it local and one-to-one";
 
-export const DEFAULT_EMAIL_BODY = `Hi {{firstName}},
+/**
+ * Talking points / guidance for the outreach agent.
+ * In agent mode these are cues, not the literal email every contact receives.
+ */
+export const DEFAULT_EMAIL_BODY = `Mention that we are already staged locally and can help with mitigation, board-up, and insurance documentation.
+Keep the tone warm, professional, and specific to their city.
+Offer the agent's direct phone line.
+Do not sound like a mass marketing blast.`;
 
-Weather teams are tracking {{stormName}} headed toward {{city}}, {{state}}, with an expected arrival around {{stormEta}}.
-
-I wanted to reach out personally from {{companyName}} so you know we're already staged and ready if you need water mitigation, board-up, or emergency restoration support.
-
-If anything happens, reply to this email or call me directly at {{agentPhone}}. We'll move quickly and walk you through insurance documentation from the start.
-
-Stay safe,
-{{agentName}}
-{{companyName}}
-{{agentPhone}}
-{{agentEmail}}`;
+export const DEFAULT_VOICE_NOTES =
+  "Professional, calm, neighborly — like a trusted local contractor texting a known customer";

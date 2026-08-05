@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -16,7 +16,7 @@ type CampaignDetail = {
   sentCount: number;
   failedCount: number;
   storm: { name: string; severity: string; affectedCities: string[] };
-  rule: { name: string; hoursBeforeEta: number; emailSubject: string };
+  rule: { name: string; hoursBeforeEta: number; emailSubject: string; writingMode?: string };
   emails: Array<{
     id: string;
     toEmail: string;
@@ -25,6 +25,8 @@ type CampaignDetail = {
     status: string;
     scheduledFor: string;
     sentAt: string | null;
+    writingMode?: string | null;
+    personalizationBrief?: string | null;
     contact: { firstName: string; lastName: string; city: string; state: string };
   }>;
 };
@@ -42,6 +44,17 @@ export default function CampaignDetailPage() {
         if (data.emails?.[0]) setSelected(data.emails[0].id);
       });
   }, [params.id]);
+
+  const uniqueness = useMemo(() => {
+    if (!campaign) return null;
+    const bodies = new Set(campaign.emails.map((e) => e.body));
+    const subjects = new Set(campaign.emails.map((e) => e.subject));
+    return {
+      uniqueBodies: bodies.size,
+      uniqueSubjects: subjects.size,
+      total: campaign.emails.length,
+    };
+  }, [campaign]);
 
   if (!campaign) {
     return <div className="panel p-8 text-sm text-ink/60">Loading campaign…</div>;
@@ -64,9 +77,15 @@ export default function CampaignDetailPage() {
       <div className="mb-4 flex flex-wrap gap-2">
         <StatusBadge value={campaign.status} />
         <StatusBadge value={campaign.storm.severity} />
+        <span className="badge badge-watch">agent-written</span>
         <span className="badge badge-neutral">
           {campaign.sentCount}/{campaign.matchedCount} sent
         </span>
+        {uniqueness ? (
+          <span className="badge badge-neutral">
+            {uniqueness.uniqueBodies}/{uniqueness.total} unique messages
+          </span>
+        ) : null}
         <span className="badge badge-neutral">
           Scheduled {format(new Date(campaign.scheduledFor), "MMM d, h:mm a")}
         </span>
@@ -75,6 +94,10 @@ export default function CampaignDetailPage() {
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <section className="panel p-5">
           <h2 className="font-display text-xl">Recipients</h2>
+          <p className="mt-1 text-sm text-ink/55">
+            Each person gets their own professionally written note — not the same template with a
+            name swapped in.
+          </p>
           <div className="mt-3 space-y-2">
             {campaign.emails.map((email) => (
               <button
@@ -95,15 +118,22 @@ export default function CampaignDetailPage() {
                 <p className="text-sm text-ink/55">
                   {email.contact.city}, {email.contact.state} · {email.toEmail}
                 </p>
+                <p className="mt-1 truncate text-xs text-ink/45">{email.subject}</p>
               </button>
             ))}
           </div>
         </section>
 
         <section className="panel p-5">
-          <h2 className="font-display text-xl">Personalized email</h2>
+          <h2 className="font-display text-xl">One-to-one email</h2>
           {active ? (
             <div className="mt-4">
+              {active.personalizationBrief ? (
+                <div className="mb-4 rounded-xl border border-signal/20 bg-signal/5 px-3 py-2 text-xs text-ink/70">
+                  <span className="font-semibold text-signal-deep">Agent brief · </span>
+                  {active.personalizationBrief}
+                </div>
+              ) : null}
               <p className="text-xs uppercase tracking-[0.12em] text-ink/45">Subject</p>
               <p className="mt-1 font-semibold">{active.subject}</p>
               <p className="mt-4 text-xs uppercase tracking-[0.12em] text-ink/45">Body</p>

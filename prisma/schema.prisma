@@ -87,6 +87,10 @@ model OutreachRule {
   targetStates   String?
   contactListId  String?
   contactList    ContactList? @relation(fields: [contactListId], references: [id], onDelete: SetNull)
+  /// agent = unique personal copy per contact; template = literal merge fields
+  writingMode    String       @default("agent")
+  /// Optional voice/angle guidance for the outreach agent
+  voiceNotes     String?
   emailSubject   String
   emailBody      String
   fromName       String?
@@ -120,19 +124,21 @@ model Campaign {
 }
 
 model EmailLog {
-  id           String   @id @default(cuid())
-  campaignId   String
-  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  contactId    String
-  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  toEmail      String
-  subject      String
-  body         String
-  status       String   @default("queued")
-  scheduledFor DateTime
-  sentAt       DateTime?
-  error        String?
-  createdAt    DateTime @default(now())
+  id                   String   @id @default(cuid())
+  campaignId           String
+  campaign             Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId            String
+  contact              Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  toEmail              String
+  subject              String
+  body                 String
+  status               String   @default("queued")
+  scheduledFor         DateTime
+  sentAt               DateTime?
+  error                String?
+  writingMode          String   @default("agent")
+  personalizationBrief String?
+  createdAt            DateTime @default(now())
 
   @@index([status])
   @@index([scheduledFor])

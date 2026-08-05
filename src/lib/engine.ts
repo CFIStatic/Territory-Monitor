@@ -2,7 +2,7 @@ import { subHours } from "date-fns";
 import { prisma } from "@/lib/db";
 import { meetsMinSeverity } from "@/lib/constants";
 import { normalizePlace, parseStringArray } from "@/lib/json";
-import { renderTemplate } from "@/lib/templates";
+import { composeOutreachBatch } from "@/lib/outreach-agent";
 import type { Contact, OutreachRule, StormEvent } from "@prisma/client";
 
 function citiesMatch(contactCity: string, targets: string[]): boolean {
@@ -130,6 +130,8 @@ export async function evaluateRulesAndCreateCampaigns(now = new Date()) {
         continue;
       }
 
+      const composed = await composeOutreachBatch(matched, storm, rule, settings);
+
       const campaign = await prisma.campaign.create({
         data: {
           name: `${rule.name} · ${storm.name}`,
@@ -139,24 +141,19 @@ export async function evaluateRulesAndCreateCampaigns(now = new Date()) {
           scheduledFor,
           matchedCount: matched.length,
           emails: {
-            create: matched.map((contact) => ({
-              contactId: contact.id,
-              toEmail: contact.email,
-              subject: renderTemplate(rule.emailSubject, {
-                contact,
-                storm,
-                settings,
-                fromName: rule.fromName,
-              }),
-              body: renderTemplate(rule.emailBody, {
-                contact,
-                storm,
-                settings,
-                fromName: rule.fromName,
-              }),
-              status: "queued",
-              scheduledFor,
-            })),
+            create: matched.map((contact) => {
+              const email = composed.get(contact.id)!;
+              return {
+                contactId: contact.id,
+                toEmail: contact.email,
+                subject: email.subject,
+                body: email.body,
+                writingMode: email.writingMode,
+                personalizationBrief: email.personalizationBrief,
+                status: "queued",
+                scheduledFor,
+              };
+            }),
           },
         },
       });

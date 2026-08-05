@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { jsonError, jsonOk, readJson } from "@/lib/api";
 import { contactMatchesStormAndRule } from "@/lib/engine";
-import { renderTemplate } from "@/lib/templates";
+import { composeOutreachEmail } from "@/lib/outreach-agent";
 import type { OutreachRule, StormEvent } from "@prisma/client";
 
 export async function POST(request: Request) {
@@ -30,25 +30,35 @@ export async function POST(request: Request) {
     contactMatchesStormAndRule(c, storm as StormEvent, rule as OutreachRule)
   );
 
-  const samples = matched.slice(0, 5).map((contact) => ({
-    contact,
-    subject: renderTemplate(rule.emailSubject, {
+  const samples = [];
+  for (const contact of matched.slice(0, 5)) {
+    const composed = await composeOutreachEmail({
       contact,
       storm,
+      rule,
       settings,
-      fromName: rule.fromName,
-    }),
-    body: renderTemplate(rule.emailBody, {
+    });
+    samples.push({
       contact,
-      storm,
-      settings,
-      fromName: rule.fromName,
-    }),
-  }));
+      subject: composed.subject,
+      body: composed.body,
+      writingMode: composed.writingMode,
+      personalizationBrief: composed.personalizationBrief,
+    });
+  }
+
+  const uniqueSubjects = new Set(samples.map((s) => s.subject)).size;
+  const uniqueBodies = new Set(samples.map((s) => s.body)).size;
 
   return jsonOk({
     matchedCount: matched.length,
     matchedContacts: matched,
     samples,
+    uniqueness: {
+      sampleSize: samples.length,
+      uniqueSubjects,
+      uniqueBodies,
+      oneToOne: samples.length <= 1 || uniqueBodies === samples.length,
+    },
   });
 }

@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/db";
 import { jsonError, jsonOk, readJson } from "@/lib/api";
 import { toJsonArray } from "@/lib/json";
-import { DEFAULT_EMAIL_BODY, DEFAULT_EMAIL_SUBJECT } from "@/lib/templates";
+import {
+  DEFAULT_EMAIL_BODY,
+  DEFAULT_EMAIL_SUBJECT,
+  DEFAULT_VOICE_NOTES,
+} from "@/lib/templates";
 
 function serialize(rule: {
   stormTypes: string;
@@ -39,12 +43,16 @@ export async function POST(request: Request) {
     targetCities?: string[] | string;
     targetStates?: string[] | string;
     contactListId?: string | null;
+    writingMode?: string;
+    voiceNotes?: string;
     emailSubject?: string;
     emailBody?: string;
     fromName?: string;
   }>(request);
 
   if (!body.name?.trim()) return jsonError("name is required");
+
+  const writingMode = body.writingMode === "template" ? "template" : "agent";
 
   const rule = await prisma.outreachRule.create({
     data: {
@@ -57,6 +65,8 @@ export async function POST(request: Request) {
       targetCities: body.targetCities ? toJsonArray(body.targetCities) : null,
       targetStates: body.targetStates ? toJsonArray(body.targetStates) : null,
       contactListId: body.contactListId || null,
+      writingMode,
+      voiceNotes: body.voiceNotes?.trim() || DEFAULT_VOICE_NOTES,
       emailSubject: body.emailSubject?.trim() || DEFAULT_EMAIL_SUBJECT,
       emailBody: body.emailBody?.trim() || DEFAULT_EMAIL_BODY,
       fromName: body.fromName?.trim() || null,

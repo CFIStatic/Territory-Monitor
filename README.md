@@ -7,7 +7,7 @@ Sales events in restoration are driven by weather. Territory Monitor lets agents
 ## What it does
 
 1. **Contacts** — Dump CSV, Excel (.xlsx/.xls), or PDF contact lists (multi-file supported), or add contacts manually.
-2. **Rules** — Example: “1 day before a thunderstorm warning, email contacts in the storm path with a personalized readiness message.”
+2. **Rules + outreach agent** — Example: “1 day before a thunderstorm warning, write a unique professional note to each contact in the storm path.” The agent personalizes every email (not a shared cookie-cutter template).
 3. **Storms** — Log forecasted events with ETA and affected cities.
 4. **Engine** — Matches storm territory to contacts, personalizes templates, schedules sends, and delivers due emails.
 5. **Campaigns** — Review matched recipients and the exact personalized emails.

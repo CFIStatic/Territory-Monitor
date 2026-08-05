@@ -66,6 +66,15 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(body.contactListId !== undefined
         ? { contactListId: body.contactListId ? String(body.contactListId) : null }
         : {}),
+      ...(body.writingMode !== undefined
+        ? {
+            writingMode:
+              String(body.writingMode) === "template" ? "template" : "agent",
+          }
+        : {}),
+      ...(body.voiceNotes !== undefined
+        ? { voiceNotes: body.voiceNotes ? String(body.voiceNotes) : null }
+        : {}),
       ...(typeof body.emailSubject === "string"
         ? { emailSubject: body.emailSubject }
         : {}),

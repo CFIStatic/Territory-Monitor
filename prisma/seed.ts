@@ -3,7 +3,11 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import path from "path";
 import { addHours, addDays } from "date-fns";
-import { DEFAULT_EMAIL_BODY, DEFAULT_EMAIL_SUBJECT } from "../src/lib/templates";
+import {
+  DEFAULT_EMAIL_BODY,
+  DEFAULT_EMAIL_SUBJECT,
+  DEFAULT_VOICE_NOTES,
+} from "../src/lib/templates";
 
 const dbPath = path.join(process.cwd(), "prisma", "dev.db");
 const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
@@ -175,7 +179,7 @@ async function main() {
     data: {
       name: "Pre-storm readiness — 24h",
       description:
-        "Email contacts in the storm path one day before ETA with personalized readiness messaging.",
+        "Outreach agent writes a unique personal note to each contact one day before ETA.",
       enabled: true,
       stormTypes: JSON.stringify([
         "thunderstorm",
@@ -188,6 +192,8 @@ async function main() {
       minSeverity: "watch",
       hoursBeforeEta: 24,
       contactListId: midwest.id,
+      writingMode: "agent",
+      voiceNotes: DEFAULT_VOICE_NOTES,
       emailSubject: DEFAULT_EMAIL_SUBJECT,
       emailBody: DEFAULT_EMAIL_BODY,
       fromName: "Jordan Hale",
@@ -196,26 +202,22 @@ async function main() {
 
   await prisma.outreachRule.create({
     data: {
-      name: "Milwaukee-only severe warning blast",
-      description: "Tight geo-target for Milwaukee when severity hits warning+",
+      name: "Milwaukee-only severe warning",
+      description:
+        "Tight geo-target for Milwaukee when severity hits warning+. Agent writes one-to-one copy.",
       enabled: true,
       stormTypes: JSON.stringify(["thunderstorm", "tornado", "hail"]),
       minSeverity: "warning",
       hoursBeforeEta: 12,
       targetCities: JSON.stringify(["Milwaukee"]),
       contactListId: midwest.id,
-      emailSubject:
-        "Urgent: {{stormName}} near Milwaukee — {{companyName}} on standby",
-      emailBody: `Hi {{firstName}},
-
-{{stormName}} is expected near Milwaukee around {{stormEta}}.
-
-Because you're in our Milwaukee response zone, I wanted you to have my direct line before anything happens. {{companyName}} crews are pre-positioned and can handle emergency board-up, water extraction, and contents protection.
-
-Call/text {{agentPhone}} anytime.
-
-{{agentName}}
-{{companyName}}`,
+      writingMode: "agent",
+      voiceNotes:
+        "Urgent but calm — emphasize Milwaukee response-zone readiness and direct phone access",
+      emailSubject: "Personal Milwaukee heads-up before severe weather",
+      emailBody: `Stress that they are in our Milwaukee response zone.
+Offer emergency board-up, water extraction, and contents protection.
+Give the agent's direct line and make clear this message is only for them.`,
       fromName: "Jordan Hale",
     },
   });
