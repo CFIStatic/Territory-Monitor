@@ -90,11 +90,12 @@ export default function ContactsPage() {
     });
   }
 
-  function onUpload(file: File | null) {
-    if (!file) return;
+  function onUpload(fileList: FileList | null) {
+    if (!fileList?.length) return;
+    const files = Array.from(fileList);
     startTransition(async () => {
       const body = new FormData();
-      body.append("file", file);
+      for (const file of files) body.append("files", file);
       if (uploadListId) body.append("listId", uploadListId);
       if (listName) body.append("listName", listName);
       const res = await fetch("/api/contacts/upload", { method: "POST", body });
@@ -103,7 +104,19 @@ export default function ContactsPage() {
         setMessage(json.error || "Upload failed");
         return;
       }
-      setMessage(`Imported ${json.imported} contacts${json.skipped ? `, skipped ${json.skipped}` : ""}`);
+      const fileSummary = Array.isArray(json.files)
+        ? json.files
+            .map(
+              (f: { name: string; format: string; imported: number }) =>
+                `${f.name} (${f.format}: ${f.imported})`
+            )
+            .join(" · ")
+        : "";
+      setMessage(
+        `Imported ${json.imported} contacts${json.skipped ? `, skipped ${json.skipped}` : ""}${
+          fileSummary ? ` — ${fileSummary}` : ""
+        }`
+      );
       setListName("");
       await load();
     });
@@ -113,7 +126,7 @@ export default function ContactsPage() {
     <div>
       <PageHeader
         title="Contacts"
-        description="Upload your book of business. Territory matching uses city, state, and zip to decide who gets storm outreach."
+        description="Dump CSV, Excel, or PDF contact lists. Territory matching uses city, state, and zip to decide who gets storm outreach."
       />
 
       {message ? (
@@ -187,10 +200,17 @@ export default function ContactsPage() {
 
         <div className="space-y-4">
           <section className="panel p-5">
-            <h2 className="font-display text-xl">Upload CSV</h2>
+            <h2 className="font-display text-xl">Dump contact files</h2>
             <p className="mt-1 text-sm text-ink/55">
-              Columns: firstName, lastName, email, city, state, zip, phone, address, company
+              Drop one or many files: CSV, Excel (.xlsx/.xls), or PDF. Ideal columns: name/email/city/state/zip.
+              PDFs can be tabular exports or freeform blocks with email + city, state.
             </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="badge badge-watch">CSV</span>
+              <span className="badge badge-watch">Excel</span>
+              <span className="badge badge-watch">PDF</span>
+              <span className="badge badge-neutral">multi-file</span>
+            </div>
             <div className="mt-4 space-y-3">
               <input
                 className="input"
@@ -210,16 +230,46 @@ export default function ContactsPage() {
                   </option>
                 ))}
               </select>
-              <label className="btn btn-signal w-full cursor-pointer">
-                <Upload size={15} />
-                {pending ? "Uploading…" : "Choose CSV file"}
+              <label
+                className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-ink/20 bg-white/50 px-4 py-6 text-center transition hover:border-signal hover:bg-signal/5"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  onUpload(e.dataTransfer.files);
+                }}
+              >
+                <Upload size={22} className="text-signal" />
+                <span className="mt-2 text-sm font-semibold text-ink">
+                  {pending ? "Importing…" : "Drop files here or click to browse"}
+                </span>
+                <span className="mt-1 text-xs text-ink/50">
+                  .csv · .xlsx · .xls · .pdf — select multiple to dump at once
+                </span>
                 <input
                   type="file"
-                  accept=".csv,text/csv"
+                  accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.pdf,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                  multiple
                   className="hidden"
-                  onChange={(e) => onUpload(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    onUpload(e.target.files);
+                    e.currentTarget.value = "";
+                  }}
                 />
               </label>
+              <p className="text-xs text-ink/45">
+                Samples:{" "}
+                <a className="text-signal underline" href="/sample-contacts.csv">
+                  CSV
+                </a>
+                ,{" "}
+                <a className="text-signal underline" href="/sample-contacts.xlsx">
+                  Excel
+                </a>
+                ,{" "}
+                <a className="text-signal underline" href="/sample-contacts.pdf">
+                  PDF
+                </a>
+              </p>
             </div>
           </section>
 

@@ -1,88 +1,129 @@
-import Papa from "papaparse";
 import { prisma } from "@/lib/db";
 import { jsonError, jsonOk } from "@/lib/api";
+import { parseContactFiles } from "@/lib/contact-import";
 
-type CsvRow = Record<string, string>;
+export const runtime = "nodejs";
 
-function pick(row: CsvRow, keys: string[]): string {
-  for (const key of keys) {
-    const found = Object.entries(row).find(
-      ([k]) => k.trim().toLowerCase() === key.toLowerCase()
-    );
-    if (found?.[1]?.trim()) return found[1].trim();
+function collectFiles(form: FormData): File[] {
+  const files: File[] = [];
+
+  for (const key of ["files", "file"]) {
+    for (const value of form.getAll(key)) {
+      if (value instanceof File && value.size > 0) {
+        files.push(value);
+      }
+    }
   }
-  return "";
+
+  // De-dupe by name+size+lastModified
+  const seen = new Set<string>();
+  return files.filter((f) => {
+    const key = `${f.name}:${f.size}:${f.lastModified}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export async function POST(request: Request) {
-  const form = await request.formData();
-  const file = form.get("file");
-  const listId = String(form.get("listId") || "") || null;
-  const listName = String(form.get("listName") || "").trim();
+  try {
+    const form = await request.formData();
+    const files = collectFiles(form);
+    const listId = String(form.get("listId") || "") || null;
+    const listName = String(form.get("listName") || "").trim();
 
-  if (!(file instanceof File)) {
-    return jsonError("CSV file is required");
-  }
-
-  const text = await file.text();
-  const parsed = Papa.parse<CsvRow>(text, {
-    header: true,
-    skipEmptyLines: true,
-  });
-
-  if (parsed.errors.length) {
-    return jsonError(`CSV parse error: ${parsed.errors[0]?.message}`);
-  }
-
-  let targetListId = listId;
-  if (!targetListId && listName) {
-    const list = await prisma.contactList.create({
-      data: { name: listName, description: "Uploaded from CSV" },
-    });
-    targetListId = list.id;
-  }
-
-  const created = [];
-  const skipped: string[] = [];
-
-  for (const row of parsed.data) {
-    const firstName = pick(row, ["firstName", "first_name", "first", "firstname"]);
-    const lastName = pick(row, ["lastName", "last_name", "last", "lastname"]);
-    const email = pick(row, ["email", "email_address", "e-mail"]);
-    const city = pick(row, ["city", "town"]);
-    const state = pick(row, ["state", "st", "province"]);
-
-    if (!firstName || !lastName || !email || !city || !state) {
-      skipped.push(email || `${firstName} ${lastName}`.trim() || "unknown row");
-      continue;
+    if (files.length === 0) {
+      return jsonError("Upload one or more CSV, Excel (.xlsx/.xls), or PDF contact files");
     }
 
-    const contact = await prisma.contact.create({
-      data: {
-        firstName,
-        lastName,
-        email: email.toLowerCase(),
-        phone: pick(row, ["phone", "mobile", "cell"]) || null,
-        address: pick(row, ["address", "street", "address1"]) || null,
-        city,
-        state: state.toUpperCase(),
-        zip: pick(row, ["zip", "zipcode", "postal", "postal_code"]) || null,
-        company: pick(row, ["company", "organization", "org"]) || null,
-        notes: pick(row, ["notes", "note"]) || null,
-        listId: targetListId,
-      },
+    const unsupported = files.filter((f) => {
+      const n = f.name.toLowerCase();
+      return !(
+        n.endsWith(".csv") ||
+        n.endsWith(".tsv") ||
+        n.endsWith(".txt") ||
+        n.endsWith(".xlsx") ||
+        n.endsWith(".xls") ||
+        n.endsWith(".xlsm") ||
+        n.endsWith(".pdf")
+      );
     });
-    created.push(contact);
-  }
+    if (unsupported.length) {
+      return jsonError(
+        `Unsupported file type: ${unsupported.map((f) => f.name).join(", ")}. Use CSV, Excel, or PDF.`
+      );
+    }
 
-  return jsonOk(
-    {
-      imported: created.length,
-      skipped: skipped.length,
-      skippedSamples: skipped.slice(0, 10),
-      listId: targetListId,
-      contacts: created,
-    },
-    { status: 201 }
-  );
+    const parsed = await parseContactFiles(files);
+
+    if (parsed.contacts.length === 0) {
+      return jsonError(
+        `No valid contacts found. Need first/last name (or full name), email, city, and state. Skipped ${parsed.skipped.length} rows.`
+      );
+    }
+
+    let targetListId = listId;
+    if (!targetListId) {
+      const defaultName =
+        listName ||
+        (files.length === 1
+          ? files[0].name.replace(/\.[^.]+$/, "")
+          : `Import ${new Date().toLocaleDateString()}`);
+      const list = await prisma.contactList.create({
+        data: {
+          name: defaultName,
+          description: `Uploaded from ${files.map((f) => f.name).join(", ")}`,
+        },
+      });
+      targetListId = list.id;
+    } else if (listName) {
+      // optional rename ignored; list already selected
+    }
+
+    const created = [];
+    const skipped = [...parsed.skipped];
+
+    for (const draft of parsed.contacts) {
+      const existing = await prisma.contact.findFirst({
+        where: { email: draft.email.toLowerCase() },
+      });
+      if (existing) {
+        skipped.push(`${draft.email} (already in workspace)`);
+        continue;
+      }
+
+      const contact = await prisma.contact.create({
+        data: {
+          firstName: draft.firstName,
+          lastName: draft.lastName,
+          email: draft.email.toLowerCase(),
+          phone: draft.phone || null,
+          address: draft.address || null,
+          city: draft.city,
+          state: draft.state.toUpperCase(),
+          zip: draft.zip || null,
+          company: draft.company || null,
+          notes: draft.notes || null,
+          listId: targetListId,
+        },
+      });
+      created.push(contact);
+    }
+
+    return jsonOk(
+      {
+        imported: created.length,
+        skipped: skipped.length,
+        skippedSamples: skipped.slice(0, 15),
+        listId: targetListId,
+        files: parsed.files,
+        formats: [...new Set(parsed.files.map((f) => f.format))],
+        contacts: created,
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Upload failed";
+    return jsonError(message, 400);
+  }
 }

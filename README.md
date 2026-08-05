@@ -6,7 +6,7 @@ Sales events in restoration are driven by weather. Territory Monitor lets agents
 
 ## What it does
 
-1. **Contacts** — Upload a CSV or add contacts with city/state/zip.
+1. **Contacts** — Dump CSV, Excel (.xlsx/.xls), or PDF contact lists (multi-file supported), or add contacts manually.
 2. **Rules** — Example: “1 day before a thunderstorm warning, email contacts in the storm path with a personalized readiness message.”
 3. **Storms** — Log forecasted events with ETA and affected cities.
 4. **Engine** — Matches storm territory to contacts, personalizes templates, schedules sends, and delivers due emails.
@@ -40,7 +40,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET/POST | `/api/contacts` | List / create contacts |
-| POST | `/api/contacts/upload` | CSV import |
+| POST | `/api/contacts/upload` | Import contacts from CSV / Excel / PDF (multi-file) |
 | GET/POST | `/api/lists` | Contact lists |
 | GET/POST | `/api/storms` | Storm events |
 | GET/POST | `/api/rules` | Outreach rules |
