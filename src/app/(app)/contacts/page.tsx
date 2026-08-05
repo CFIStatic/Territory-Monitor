@@ -30,6 +30,18 @@ type ContactList = {
   _count?: { contacts: number };
 };
 
+type BulkResult = {
+  imported: number;
+  skipped: number;
+  skippedExisting?: number;
+  parsed?: number;
+  batches?: number;
+  durationMs?: number;
+  listCount?: number;
+  workspaceCount?: number;
+  files?: Array<{ name: string; format: string; imported: number; sizeBytes?: number | null }>;
+};
+
 const blank = {
   firstName: "",
   lastName: "",
@@ -53,8 +65,17 @@ function memoryCount(c: Contact) {
     .length;
 }
 
+function formatBytes(n: number) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [lists, setLists] = useState<ContactList[]>([]);
   const [q, setQ] = useState("");
   const [form, setForm] = useState(blank);
@@ -62,29 +83,79 @@ export default function ContactsPage() {
   const [listName, setListName] = useState("");
   const [uploadListId, setUploadListId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
+  const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const [pending, startTransition] = useTransition();
+  const limit = 50;
 
-  async function load() {
+  async function load(nextPage = page) {
+    const params = new URLSearchParams({
+      page: String(nextPage),
+      limit: String(limit),
+    });
+    if (q.trim()) params.set("q", q.trim());
+
     const [cRes, lRes] = await Promise.all([
-      fetch(`/api/contacts${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+      fetch(`/api/contacts?${params}`),
       fetch("/api/lists"),
     ]);
-    setContacts(await cRes.json());
+    const cJson = await cRes.json();
+    setContacts(cJson.contacts || []);
+    setTotal(cJson.total || 0);
+    setPage(cJson.page || nextPage);
+    setTotalPages(cJson.totalPages || 1);
     setLists(await lRes.json());
   }
 
   useEffect(() => {
-    load();
+    load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const cityCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const c of contacts) {
-      map.set(c.city, (map.get(c.city) ?? 0) + 1);
+  const queuedSize = useMemo(
+    () => queuedFiles.reduce((sum, f) => sum + f.size, 0),
+    [queuedFiles]
+  );
+
+  function queueFiles(fileList: FileList | null) {
+    if (!fileList?.length) return;
+    setQueuedFiles(Array.from(fileList));
+    setBulkResult(null);
+    setMessage(
+      `${fileList.length} file${fileList.length === 1 ? "" : "s"} ready — click Bulk import to load your book of business`
+    );
+  }
+
+  function runBulkImport() {
+    if (!queuedFiles.length) {
+      setMessage("Choose a CSV, Excel, or PDF with your full contact list first");
+      return;
     }
-    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
-  }, [contacts]);
+    startTransition(async () => {
+      setMessage(
+        `Bulk importing ${queuedFiles.length} file${queuedFiles.length === 1 ? "" : "s"} (${formatBytes(queuedSize)})… this can take a minute for 10,000+ rows`
+      );
+      const body = new FormData();
+      for (const file of queuedFiles) body.append("files", file);
+      if (uploadListId) body.append("listId", uploadListId);
+      if (listName) body.append("listName", listName);
+      const res = await fetch("/api/contacts/upload", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) {
+        setMessage(json.error || "Bulk upload failed");
+        return;
+      }
+      setBulkResult(json);
+      setQueuedFiles([]);
+      setListName("");
+      setMessage(
+        `Bulk import complete: ${json.imported.toLocaleString()} contacts added` +
+          (json.skipped ? `, ${json.skipped.toLocaleString()} skipped` : "") +
+          (json.durationMs ? ` in ${(json.durationMs / 1000).toFixed(1)}s` : "")
+      );
+      await load(1);
+    });
+  }
 
   function addContact() {
     startTransition(async () => {
@@ -103,7 +174,7 @@ export default function ContactsPage() {
       }
       setForm(blank);
       setMessage(`Added ${json.firstName} ${json.lastName}`);
-      await load();
+      await load(1);
     });
   }
 
@@ -131,39 +202,7 @@ export default function ContactsPage() {
       }
       setMessage(`Saved personal memories for ${json.firstName}`);
       setEditing(null);
-      await load();
-    });
-  }
-
-  function onUpload(fileList: FileList | null) {
-    if (!fileList?.length) return;
-    const files = Array.from(fileList);
-    startTransition(async () => {
-      const body = new FormData();
-      for (const file of files) body.append("files", file);
-      if (uploadListId) body.append("listId", uploadListId);
-      if (listName) body.append("listName", listName);
-      const res = await fetch("/api/contacts/upload", { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok) {
-        setMessage(json.error || "Upload failed");
-        return;
-      }
-      const fileSummary = Array.isArray(json.files)
-        ? json.files
-            .map(
-              (f: { name: string; format: string; imported: number }) =>
-                `${f.name} (${f.format}: ${f.imported})`
-            )
-            .join(" · ")
-        : "";
-      setMessage(
-        `Imported ${json.imported} contacts${json.skipped ? `, skipped ${json.skipped}` : ""}${
-          fileSummary ? ` — ${fileSummary}` : ""
-        }`
-      );
-      setListName("");
-      await load();
+      await load(page);
     });
   }
 
@@ -171,17 +210,142 @@ export default function ContactsPage() {
     <div>
       <PageHeader
         title="Contacts"
-        description="Save what you remember — spouse, family, personal touches, last conversation — so outreach emails feel one-to-one, not cookie cutter."
+        description="Bulk upload your full book of business — CSV, Excel, or PDF with thousands of rows. Then add personal memories so outreach stays one-to-one."
       />
 
       {message ? (
         <div className="panel mb-4 px-4 py-3 text-sm text-ink">{message}</div>
       ) : null}
 
+      <section className="panel mb-4 border-signal/25 bg-signal/[0.04] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-2xl text-ink">Bulk upload</h2>
+            <p className="mt-1 max-w-2xl text-sm text-ink/60">
+              Drop your entire list here — built for big dumps (thousands to 100,000 contacts).
+              We parse the file, skip duplicates, and batch-insert so a 10,000-row CSV finishes in seconds, not one-by-one.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="badge badge-watch">CSV</span>
+            <span className="badge badge-watch">Excel</span>
+            <span className="badge badge-watch">PDF</span>
+            <span className="badge badge-neutral">up to 100k rows</span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          <input
+            className="input"
+            placeholder="List name for this dump (e.g. Midwest book 2026)"
+            value={listName}
+            onChange={(e) => setListName(e.target.value)}
+          />
+          <select
+            className="select"
+            value={uploadListId}
+            onChange={(e) => setUploadListId(e.target.value)}
+          >
+            <option value="">Create new list from file name</option>
+            {lists.map((l) => (
+              <option key={l.id} value={l.id}>
+                Add into: {l.name}
+              </option>
+            ))}
+          </select>
+          <button
+            className="btn btn-signal"
+            onClick={runBulkImport}
+            disabled={pending || queuedFiles.length === 0}
+          >
+            <Upload size={15} />
+            {pending ? "Importing…" : "Bulk import"}
+          </button>
+        </div>
+
+        <label
+          className="mt-4 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-ink/20 bg-white/70 px-6 py-8 text-center transition hover:border-signal hover:bg-signal/5"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            queueFiles(e.dataTransfer.files);
+          }}
+        >
+          <Upload size={28} className="text-signal" />
+          <span className="mt-3 text-base font-semibold text-ink">
+            {pending
+              ? "Bulk import running…"
+              : "Drop a 10,000-contact CSV / Excel / PDF here"}
+          </span>
+          <span className="mt-1 text-sm text-ink/50">
+            or click to browse · multi-file supported · max 50MB per file
+          </span>
+          <input
+            type="file"
+            accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.pdf,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              queueFiles(e.target.files);
+              e.currentTarget.value = "";
+            }}
+          />
+        </label>
+
+        {queuedFiles.length > 0 ? (
+          <div className="mt-3 rounded-xl border border-[var(--line)] bg-white/80 px-4 py-3 text-sm">
+            <p className="font-semibold text-ink">
+              Queued: {queuedFiles.length} file{queuedFiles.length === 1 ? "" : "s"} ·{" "}
+              {formatBytes(queuedSize)}
+            </p>
+            <ul className="mt-2 space-y-1 text-ink/65">
+              {queuedFiles.map((f) => (
+                <li key={`${f.name}-${f.size}`}>
+                  {f.name} · {formatBytes(f.size)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {bulkResult ? (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl bg-ink px-4 py-3 text-white">
+              <p className="text-xs uppercase tracking-[0.12em] text-white/55">Imported</p>
+              <p className="mt-1 font-display text-3xl">
+                {bulkResult.imported.toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--line)] bg-white/80 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-ink/45">Skipped</p>
+              <p className="mt-1 font-display text-3xl text-ink">
+                {bulkResult.skipped.toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--line)] bg-white/80 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-ink/45">Workspace total</p>
+              <p className="mt-1 font-display text-3xl text-ink">
+                {(bulkResult.workspaceCount ?? total).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--line)] bg-white/80 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-ink/45">Time</p>
+              <p className="mt-1 font-display text-3xl text-ink">
+                {bulkResult.durationMs
+                  ? `${(bulkResult.durationMs / 1000).toFixed(1)}s`
+                  : "—"}
+              </p>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
       <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <section className="panel p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="font-display text-xl">All contacts ({contacts.length})</h2>
+            <h2 className="font-display text-xl">
+              Contact book ({total.toLocaleString()})
+            </h2>
             <div className="flex gap-2">
               <input
                 className="input"
@@ -189,7 +353,11 @@ export default function ContactsPage() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
-              <button className="btn btn-ghost" onClick={() => load()} disabled={pending}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => load(1)}
+                disabled={pending}
+              >
                 Search
               </button>
             </div>
@@ -198,7 +366,7 @@ export default function ContactsPage() {
           {contacts.length === 0 ? (
             <EmptyState
               title="No contacts yet"
-              description="Upload a CSV/Excel/PDF or add a contact, then capture personal memories for the outreach agent."
+              description="Use Bulk upload above to dump your full list (CSV / Excel / PDF)."
             />
           ) : (
             <div className="space-y-2">
@@ -228,25 +396,31 @@ export default function ContactsPage() {
                       <HeartHandshake size={12} /> {memoryCount(c)} memories
                     </span>
                   </div>
-                  {(c.familyNotes || c.personalTouch || c.lastConversation) && (
-                    <p className="mt-2 line-clamp-2 text-xs text-ink/60">
-                      {[c.familyNotes, c.personalTouch, c.lastConversation]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                  )}
                 </button>
               ))}
             </div>
           )}
 
-          {cityCounts.length > 0 ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {cityCounts.map(([city, count]) => (
-                <span key={city} className="badge badge-neutral">
-                  {city} · {count}
-                </span>
-              ))}
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <button
+                className="btn btn-ghost"
+                disabled={page <= 1 || pending}
+                onClick={() => load(page - 1)}
+              >
+                Previous
+              </button>
+              <p className="text-sm text-ink/55">
+                Page {page} of {totalPages.toLocaleString()} · showing {contacts.length} of{" "}
+                {total.toLocaleString()}
+              </p>
+              <button
+                className="btn btn-ghost"
+                disabled={page >= totalPages || pending}
+                onClick={() => load(page + 1)}
+              >
+                Next
+              </button>
             </div>
           ) : null}
         </section>
@@ -269,29 +443,23 @@ export default function ContactsPage() {
                 />
                 <textarea
                   className="textarea min-h-20"
-                  placeholder="Family notes (kids, pets, how everyone’s doing)"
+                  placeholder="Family notes"
                   value={editing.familyNotes || ""}
                   onChange={(e) => setEditing({ ...editing, familyNotes: e.target.value })}
                 />
                 <textarea
                   className="textarea min-h-20"
-                  placeholder="Personal touch (hobbies, home details you remember)"
+                  placeholder="Personal touch"
                   value={editing.personalTouch || ""}
                   onChange={(e) => setEditing({ ...editing, personalTouch: e.target.value })}
                 />
                 <textarea
                   className="textarea min-h-20"
-                  placeholder="Last conversation (what you talked about last time)"
+                  placeholder="Last conversation"
                   value={editing.lastConversation || ""}
                   onChange={(e) =>
                     setEditing({ ...editing, lastConversation: e.target.value })
                   }
-                />
-                <textarea
-                  className="textarea min-h-16"
-                  placeholder="Other CRM notes"
-                  value={editing.notes || ""}
-                  onChange={(e) => setEditing({ ...editing, notes: e.target.value })}
                 />
                 <div className="flex gap-2">
                   <button className="btn btn-primary" onClick={saveMemories} disabled={pending}>
@@ -306,57 +474,10 @@ export default function ContactsPage() {
           ) : null}
 
           <section className="panel p-5">
-            <h2 className="font-display text-xl">Dump contact files</h2>
+            <h2 className="font-display text-xl">Add one contact</h2>
             <p className="mt-1 text-sm text-ink/55">
-              CSV / Excel / PDF. Optional columns: spouse, family, personalTouch, lastConversation.
+              For quick adds. For the full book, use Bulk upload above.
             </p>
-            <div className="mt-4 space-y-3">
-              <input
-                className="input"
-                placeholder="New list name (optional)"
-                value={listName}
-                onChange={(e) => setListName(e.target.value)}
-              />
-              <select
-                className="select"
-                value={uploadListId}
-                onChange={(e) => setUploadListId(e.target.value)}
-              >
-                <option value="">Or choose existing list</option>
-                {lists.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-              <label
-                className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-ink/20 bg-white/50 px-4 py-6 text-center transition hover:border-signal hover:bg-signal/5"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  onUpload(e.dataTransfer.files);
-                }}
-              >
-                <Upload size={20} className="text-signal" />
-                <span className="mt-2 text-sm font-semibold">
-                  {pending ? "Importing…" : "Drop files or browse"}
-                </span>
-                <input
-                  type="file"
-                  accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.pdf,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    onUpload(e.target.files);
-                    e.currentTarget.value = "";
-                  }}
-                />
-              </label>
-            </div>
-          </section>
-
-          <section className="panel p-5">
-            <h2 className="font-display text-xl">Add contact</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {(
                 [
@@ -385,36 +506,6 @@ export default function ContactsPage() {
                 value={form.address}
                 onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
               />
-              <textarea
-                className="textarea sm:col-span-2 min-h-16"
-                placeholder="Family notes"
-                value={form.familyNotes}
-                onChange={(e) => setForm((f) => ({ ...f, familyNotes: e.target.value }))}
-              />
-              <textarea
-                className="textarea sm:col-span-2 min-h-16"
-                placeholder="Personal touch"
-                value={form.personalTouch}
-                onChange={(e) => setForm((f) => ({ ...f, personalTouch: e.target.value }))}
-              />
-              <textarea
-                className="textarea sm:col-span-2 min-h-16"
-                placeholder="Last conversation"
-                value={form.lastConversation}
-                onChange={(e) => setForm((f) => ({ ...f, lastConversation: e.target.value }))}
-              />
-              <select
-                className="select sm:col-span-2"
-                value={form.listId}
-                onChange={(e) => setForm((f) => ({ ...f, listId: e.target.value }))}
-              >
-                <option value="">No list</option>
-                {lists.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
             </div>
             <button className="btn btn-primary mt-4" onClick={addContact} disabled={pending}>
               <UserPlus size={15} /> Add contact

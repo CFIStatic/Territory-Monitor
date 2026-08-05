@@ -56,8 +56,8 @@ model Contact {
   updatedAt        DateTime     @updatedAt
   emails           EmailLog[]
 
+  @@unique([email])
   @@index([city, state])
-  @@index([email])
   @@index([listId])
 }
 

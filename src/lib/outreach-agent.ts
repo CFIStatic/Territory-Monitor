@@ -119,9 +119,9 @@ function buildMemoryBundle(contact: Contact, rng: () => number): MemoryBundle {
     const options: string[] = [];
     if (spouse && family) {
       options.push(
-        `Hope ${spouse} and the family are doing well — I still remember ${family}.`,
-        `Thinking of you and ${spouse}. How’s everyone doing? Last I recalled, ${family}.`,
-        `Please tell ${spouse} I said hello. I’ve been meaning to ask how things are with ${family}.`
+        `Hope ${spouse} and the family are doing well — I still remember you mentioning ${family}.`,
+        `Thinking of you and ${spouse}. How’s everyone doing? I’ve got a note here about ${family}.`,
+        `Please tell ${spouse} I said hello. Hope all is well at home (${family}).`
       );
     } else if (spouse) {
       options.push(
@@ -131,9 +131,9 @@ function buildMemoryBundle(contact: Contact, rng: () => number): MemoryBundle {
       );
     } else if (family) {
       options.push(
-        `Hope the family is doing well — I’ve been thinking about ${family}.`,
-        `Quick personal check-in: how’s everyone at home? I still remember ${family}.`,
-        `Hope things are good with the family (${family}).`
+        `Hope the family is doing well — I’ve got a note here about ${family}.`,
+        `Quick personal check-in: how’s everyone at home? I still remember you mentioning ${family}.`,
+        `Hope things are good at home (${family}).`
       );
     }
     if (options.length) {
