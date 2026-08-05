@@ -44,9 +44,7 @@ export function AppNav() {
               href={href}
               className={clsx(
                 "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-                active
-                  ? "bg-ink text-white"
-                  : "text-ink/70 hover:bg-white/70 hover:text-ink"
+                active ? "nav-link-active" : "nav-link"
               )}
             >
               <Icon size={17} />
