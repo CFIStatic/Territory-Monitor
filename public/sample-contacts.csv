@@ -1,0 +1,6 @@
+firstName,lastName,email,phone,address,city,state,zip,company
+Amy,Carter,amy.carter@example.com,(414) 555-0199,1200 E Brady St,Milwaukee,WI,53202,Carter Homes
+Luis,Mendez,luis.mendez@example.com,(262) 555-0177,45 Pewaukee Rd,Waukesha,WI,53188,
+Sofia,Patel,sofia.patel@example.com,(847) 555-0122,200 N Dearborn,Chicago,IL,60601,Patel Realty
+Ben,Ortiz,ben.ortiz@example.com,(920) 555-0166,300 N Broadway,Green Bay,WI,54303,
+Riley,Quinn,riley.quinn@example.com,(414) 555-0110,700 W Historic Mitchell St,Milwaukee,WI,53204,
