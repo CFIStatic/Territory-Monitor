@@ -12,6 +12,7 @@ Sales events in restoration are driven by weather. Territory Monitor lets agents
 4. **Territory map** — See coverage from your contact book, storm polygons on the map, and launch alerts/campaigns from selected cities or storm paths.
 5. **Engine** — Matches storm territory to contacts, personalizes messages, schedules sends, and delivers due emails.
 6. **Campaigns** — Review matched recipients and the exact personalized emails.
+7. **Cyber defense** — Upload malware signature scanning, macro/executable blocks, rate limits, security headers, and optional API-key protection.
 
 ## Quick start
 
@@ -52,6 +53,20 @@ Open [http://localhost:3000](http://localhost:3000).
 | POST | `/api/engine/run` | Evaluate rules + send due emails |
 | POST | `/api/preview` | Preview matches for storm + rule |
 | GET/PUT | `/api/settings` | Company / agent identity |
+| GET | `/api/security` | Cyber defense status + recent events |
+
+## Cyber defense
+
+Uploads are scanned **before** CSV/Excel/PDF parsers run:
+
+- Blocks executables (PE/ELF/Mach-O), macro-enabled Office (`.xlsm`, `vbaProject.bin`), and hostile PDF actions (JavaScript, Launch, embedded files)
+- Rejects CSV formula / script polyglots and type-mismatched (polyglot) files
+- Sanitizes contact fields (control chars, length caps, formula-injection neutralization)
+- Rate-limits upload, engine, weather sync, and territory alert routes
+- Security headers via middleware (CSP, frame deny, nosniff)
+- Optional `TM_API_KEY` — when set, guarded routes require `x-api-key` or `Authorization: Bearer`
+
+Open **Cyber defense** in the app nav to see blocks and active controls.
 
 ## Weather setup
 

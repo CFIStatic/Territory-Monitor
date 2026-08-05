@@ -1,6 +1,7 @@
 import { jsonError, jsonOk, readJson } from "@/lib/api";
 import { hasWeatherComKey } from "@/lib/weather/weather-com";
 import { syncWeatherAlerts } from "@/lib/weather/sync";
+import { guardRequest } from "@/lib/security/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,6 +20,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const blocked = guardRequest(request, {
+    bucket: "weather-sync",
+    limit: 20,
+    windowMs: 60_000,
+    requireAuth: true,
+  });
+  if (blocked) return blocked;
+
   try {
     const body = await readJson<{
       area?: string;

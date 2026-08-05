@@ -2,12 +2,16 @@ import { prisma } from "@/lib/db";
 import { jsonError, jsonOk } from "@/lib/api";
 import { parseContactFiles } from "@/lib/contact-import";
 import { bulkInsertContacts } from "@/lib/bulk-import";
+import { scanUploadFile } from "@/lib/security/malware-scan";
+import { guardRequest } from "@/lib/security/guard";
+import { logSecurityEvent } from "@/lib/security/audit";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50MB per file
 const MAX_CONTACTS = 100_000;
+const MAX_FILES = 20;
 
 function collectFiles(form: FormData): File[] {
   const files: File[] = [];
@@ -30,6 +34,14 @@ function collectFiles(form: FormData): File[] {
 }
 
 export async function POST(request: Request) {
+  const blocked = guardRequest(request, {
+    bucket: "contacts-upload",
+    limit: 10,
+    windowMs: 60_000,
+    requireAuth: true,
+  });
+  if (blocked) return blocked;
+
   try {
     const form = await request.formData();
     const files = collectFiles(form);
@@ -42,6 +54,10 @@ export async function POST(request: Request) {
       );
     }
 
+    if (files.length > MAX_FILES) {
+      return jsonError(`Too many files (max ${MAX_FILES} per upload)`);
+    }
+
     const tooLarge = files.filter((f) => f.size > MAX_FILE_BYTES);
     if (tooLarge.length) {
       return jsonError(
@@ -49,22 +65,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const unsupported = files.filter((f) => {
-      const n = f.name.toLowerCase();
-      return !(
-        n.endsWith(".csv") ||
-        n.endsWith(".tsv") ||
-        n.endsWith(".txt") ||
-        n.endsWith(".xlsx") ||
-        n.endsWith(".xls") ||
-        n.endsWith(".xlsm") ||
-        n.endsWith(".pdf")
-      );
-    });
-    if (unsupported.length) {
-      return jsonError(
-        `Unsupported file type: ${unsupported.map((f) => f.name).join(", ")}. Use CSV, Excel, or PDF.`
-      );
+    // Cyber defense: signature scan every file before parsers run
+    const scanResults = [];
+    for (const file of files) {
+      const verdict = await scanUploadFile(file);
+      scanResults.push({
+        name: file.name,
+        ok: verdict.ok,
+        threat: verdict.threat,
+        format: verdict.format,
+        bytes: verdict.bytes,
+        details: verdict.details,
+      });
+      if (!verdict.ok) {
+        logSecurityEvent("malware_block", `Blocked upload: ${file.name}`, {
+          threat: verdict.threat,
+          details: verdict.details,
+          bytes: verdict.bytes,
+        });
+        return jsonError(
+          `Malware defense blocked "${file.name}": ${verdict.details.join("; ") || verdict.threat}`,
+          422
+        );
+      }
     }
 
     const parsed = await parseContactFiles(files);
@@ -101,7 +124,6 @@ export async function POST(request: Request) {
     const skippedParse = parsed.skipped.length;
     const totalSkipped = skippedParse + bulk.skippedExisting;
 
-    // Sample a few newly imported rows for UI confirmation (not the full 10k)
     const sample = await prisma.contact.findMany({
       where: { listId: targetListId },
       orderBy: { createdAt: "desc" },
@@ -126,6 +148,12 @@ export async function POST(request: Request) {
         listId: targetListId,
         listCount: totalInList,
         workspaceCount: totalContacts,
+        security: {
+          scanned: scanResults.length,
+          blocked: 0,
+          scans: scanResults,
+          defense: "signature_scan",
+        },
         files: parsed.files.map((f) => ({
           ...f,
           sizeBytes: files.find((x) => x.name === f.name)?.size ?? null,

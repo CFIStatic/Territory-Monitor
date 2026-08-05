@@ -3,6 +3,7 @@ import { jsonError, jsonOk, readJson } from "@/lib/api";
 import { runOutreachEngine } from "@/lib/engine";
 import { toJsonArray } from "@/lib/json";
 import { addHours } from "date-fns";
+import { guardRequest } from "@/lib/security/guard";
 
 /**
  * Launch outreach from the territory map.
@@ -10,6 +11,14 @@ import { addHours } from "date-fns";
  * - If cities provided without storm: create a local "territory alert" storm then run engine
  */
 export async function POST(request: Request) {
+  const blocked = guardRequest(request, {
+    bucket: "territory-alert",
+    limit: 30,
+    windowMs: 60_000,
+    requireAuth: true,
+  });
+  if (blocked) return blocked;
+
   const body = await readJson<{
     stormId?: string;
     cities?: string[];

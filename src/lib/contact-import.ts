@@ -1,6 +1,8 @@
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { PDFParse } from "pdf-parse";
+import { sanitizeContactFields } from "@/lib/security/sanitize";
+import { scanUploadBuffer } from "@/lib/security/malware-scan";
 
 export type ContactDraft = {
   firstName: string;
@@ -155,7 +157,7 @@ function rowToContact(row: Row): ContactDraft | null {
 
   if (!EMAIL_RE.test(email)) return null;
 
-  return {
+  return sanitizeContactFields({
     firstName,
     lastName,
     email,
@@ -196,7 +198,7 @@ function rowToContact(row: Row): ContactDraft | null {
         "memories",
       ]) || null,
     notes: pick(row, ["notes", "note", "comment", "comments"]) || null,
-  };
+  });
 }
 
 function rowsToContacts(rows: Row[], source: string, format: ParseResult["format"]): ParseResult {
@@ -232,10 +234,10 @@ function detectFormat(fileName: string, mimeType = ""): ParseResult["format"] {
   if (name.endsWith(".csv") || name.endsWith(".tsv") || name.endsWith(".txt") || mime.includes("csv")) {
     return "csv";
   }
+  // Macro-enabled .xlsm intentionally unsupported (malware vector)
   if (
     name.endsWith(".xlsx") ||
     name.endsWith(".xls") ||
-    name.endsWith(".xlsm") ||
     mime.includes("spreadsheet") ||
     mime.includes("excel")
   ) {
@@ -265,7 +267,13 @@ export async function parseCsvBuffer(buffer: Buffer, source: string): Promise<Pa
 }
 
 export async function parseExcelBuffer(buffer: Buffer, source: string): Promise<ParseResult> {
-  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  // cellFormula disabled — we only need values; reduces macro/formula attack surface
+  const workbook = XLSX.read(buffer, {
+    type: "buffer",
+    cellDates: true,
+    cellFormula: false,
+    bookVBA: false,
+  });
   const allRows: Row[] = [];
 
   for (const sheetName of workbook.SheetNames) {
@@ -408,18 +416,20 @@ function parsePdfFreeform(text: string, source: string): ParseResult {
     }
 
     seen.add(email);
-    contacts.push({
-      firstName,
-      lastName,
-      email,
-      phone: phoneMatch?.[0] || null,
-      address: null,
-      city,
-      state: stateMatch?.[1] && US_STATES.has(stateMatch[1]) ? stateMatch[1] : state,
-      zip: zip || null,
-      company: null,
-      notes: "Extracted from PDF",
-    });
+    contacts.push(
+      sanitizeContactFields({
+        firstName,
+        lastName,
+        email,
+        phone: phoneMatch?.[0] || null,
+        address: null,
+        city,
+        state: stateMatch?.[1] && US_STATES.has(stateMatch[1]) ? stateMatch[1] : state,
+        zip: zip || null,
+        company: null,
+        notes: "Extracted from PDF",
+      })
+    );
   }
 
   return { contacts, skipped, source, format: "pdf" };
@@ -465,6 +475,14 @@ export async function parseContactFile(
 ): Promise<ParseResult> {
   const format = detectFormat(file.name, file.type || "");
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Defense-in-depth: re-scan even if the upload route already scanned
+  const verdict = scanUploadBuffer(buffer, file.name, file.type || "");
+  if (!verdict.ok) {
+    throw new Error(
+      `Malware defense blocked "${file.name}": ${verdict.details.join("; ") || verdict.threat}`
+    );
+  }
 
   if (format === "csv") return parseCsvBuffer(buffer, file.name);
   if (format === "excel") return parseExcelBuffer(buffer, file.name);

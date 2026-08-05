@@ -10,6 +10,7 @@ import {
   Mail,
   MapPinned,
   Settings2,
+  ShieldCheck,
   SlidersHorizontal,
 } from "lucide-react";
 import clsx from "clsx";
@@ -22,6 +23,7 @@ const links = [
   { href: "/rules", label: "Rules", icon: SlidersHorizontal },
   { href: "/preview", label: "Preview", icon: Eye },
   { href: "/campaigns", label: "Campaigns", icon: Mail },
+  { href: "/security", label: "Cyber defense", icon: ShieldCheck },
   { href: "/settings", label: "Settings", icon: Settings2 },
 ];
 
