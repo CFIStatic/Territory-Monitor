@@ -6,6 +6,28 @@ datasource db {
   provider = "sqlite"
 }
 
+model User {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  passwordHash         String
+  name                 String
+  phone                String?
+  /// account | company | billing | complete
+  onboardingStep       String    @default("company")
+  /// none | trialing | active | past_due | canceled | demo
+  subscriptionStatus   String    @default("none")
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  planKey              String?
+  trialEndsAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([subscriptionStatus])
+  @@index([onboardingStep])
+}
+
 model CompanySettings {
   id           String   @id @default(cuid())
   companyName  String
@@ -15,6 +37,8 @@ model CompanySettings {
   website      String?
   replyToEmail String?
   signature    String?
+  /// Owning user when multi-account is enabled
+  userId       String?  @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

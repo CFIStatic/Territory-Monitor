@@ -6,13 +6,14 @@ Sales events in restoration are driven by weather. Territory Monitor lets agents
 
 ## What it does
 
-1. **Contacts** — Dump CSV, Excel (.xlsx/.xls), or PDF contact lists (multi-file supported), or add contacts manually.
-2. **Rules + outreach agent** — Example: “1 day before a thunderstorm warning, write a unique professional note to each contact in the storm path.” The agent personalizes every email (not a shared cookie-cutter template).
-3. **Weather + storms** — Pull live alerts from Weather.com (`WEATHER_COM_API_KEY`) or NWS, with manual events as backup.
-4. **Territory map** — See coverage from your contact book, storm polygons on the map, and launch alerts/campaigns from selected cities or storm paths.
-5. **Engine** — Matches storm territory to contacts, personalizes messages, schedules sends, and delivers due emails.
-6. **Campaigns** — Review matched recipients and the exact personalized emails.
-7. **Cyber defense** — Upload malware signature scanning, macro/executable blocks, rate limits, security headers, and optional API-key protection.
+1. **Account + Stripe** — Sign up / sign in, company setup, and Stripe Checkout (or demo billing) for Starter/Pro plans.
+2. **Contacts** — Dump CSV, Excel (.xlsx/.xls), or PDF contact lists (multi-file supported), or add contacts manually.
+3. **Rules + outreach agent** — Example: “1 day before a thunderstorm warning, write a unique professional note to each contact in the storm path.” The agent personalizes every email (not a shared cookie-cutter template).
+4. **Weather + storms** — Pull live alerts from Weather.com (`WEATHER_COM_API_KEY`) or NWS, with manual events as backup.
+5. **Territory map** — See coverage from your contact book, storm polygons on the map, and launch alerts/campaigns from selected cities or storm paths.
+6. **Engine** — Matches storm territory to contacts, personalizes messages, schedules sends, and delivers due emails.
+7. **Campaigns** — Review matched recipients and the exact personalized emails.
+8. **Cyber defense** — Upload malware signature scanning, macro/executable blocks, rate limits, security headers, and optional API-key protection.
 
 ## Quick start
 
@@ -25,9 +26,28 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+Demo login after seed: `jordan@lakeshorerestoration.com` / `Demo1234!`
+
+## Account + Stripe setup
+
+1. **Sign up** at `/signup` (or sign in at `/login`).
+2. **Company setup** at `/account/setup` — agent/company identity used in emails.
+3. **Billing** at `/account/billing` — Stripe Checkout when keys are set, otherwise **Activate demo subscription**.
+4. Stripe webhook endpoint: `POST /api/billing/webhook` (set `STRIPE_WEBHOOK_SECRET`).
+
+```bash
+# .env
+AUTH_SECRET=generate-a-long-random-string
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_PRO=price_...
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
 ## Demo flow
 
-1. Open **Dashboard** and click **Run outreach engine**.
+1. Sign in, then open **Dashboard** and click **Run outreach engine**.
 2. Seeded data includes Midwest contacts, a Milwaukee storm (~36h ETA), and two rules (24h and 12h before ETA).
 3. The 24h rule creates a campaign for Milwaukee-area contacts and queues personalized emails.
 4. To force immediate send for testing, set a storm ETA to ~1 hour from now (or lower `hoursBeforeEta`), then run the engine again.
@@ -54,6 +74,14 @@ Open [http://localhost:3000](http://localhost:3000).
 | POST | `/api/preview` | Preview matches for storm + rule |
 | GET/PUT | `/api/settings` | Company / agent identity |
 | GET | `/api/security` | Cyber defense status + recent events |
+| POST | `/api/auth/signup` | Create account + session |
+| POST | `/api/auth/login` | Sign in |
+| POST | `/api/auth/logout` | Sign out |
+| GET | `/api/auth/me` | Current user + billing plans |
+| GET/POST | `/api/account/setup` | Company onboarding |
+| POST | `/api/billing/checkout` | Stripe Checkout or demo subscription |
+| POST | `/api/billing/portal` | Stripe customer portal |
+| POST | `/api/billing/webhook` | Stripe subscription webhooks |
 
 ## Cyber defense
 

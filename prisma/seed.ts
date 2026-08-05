@@ -8,6 +8,7 @@ import {
   DEFAULT_EMAIL_SUBJECT,
   DEFAULT_VOICE_NOTES,
 } from "../src/lib/templates";
+import { hashPassword } from "../src/lib/auth/password";
 
 const dbPath = path.join(process.cwd(), "prisma", "dev.db");
 const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
@@ -21,6 +22,20 @@ async function main() {
   await prisma.contactList.deleteMany();
   await prisma.stormEvent.deleteMany();
   await prisma.companySettings.deleteMany();
+  await prisma.user.deleteMany();
+
+  const demoUser = await prisma.user.create({
+    data: {
+      name: "Jordan Hale",
+      email: "jordan@lakeshorerestoration.com",
+      phone: "(414) 555-0188",
+      passwordHash: await hashPassword("Demo1234!"),
+      onboardingStep: "complete",
+      subscriptionStatus: "demo",
+      planKey: "pro",
+      trialEndsAt: addDays(new Date(), 14),
+    },
+  });
 
   await prisma.companySettings.create({
     data: {
@@ -32,6 +47,7 @@ async function main() {
       replyToEmail: "jordan@lakeshorerestoration.com",
       signature:
         "Jordan Hale | Lakeshore Restoration | 24/7 Emergency Response",
+      userId: demoUser.id,
     },
   });
 
@@ -254,6 +270,7 @@ Give the agent's direct line and make clear this message is only for them.`,
   });
 
   console.log("Seed complete.");
+  console.log("Demo login: jordan@lakeshorerestoration.com / Demo1234!");
 }
 
 main()
